@@ -30,7 +30,8 @@ setup(
 	namespace_packages=['nti'],
 	install_requires=[
 		'setuptools',
-		'nti.analytics_registration'
+		'nti.analytics_registration',
+		'nti.app.analytics'
 	],
 	entry_points=entry_points
 )
