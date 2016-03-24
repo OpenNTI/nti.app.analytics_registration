@@ -105,8 +105,11 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 	"""
 
 	def __call__(self):
-		# FIXME: User, survey url filter
-		registrations = get_registrations()
+		values = CaseInsensitiveDict( self.readInput() )
+
+		username = values.get( 'user' ) or values.get( 'username' )
+		user = User.get_user( username )
+		registrations = get_registrations( user=user )
 		if not registrations:
 			return hexc.HTTPNotFound( _('There are no registrations') )
 
