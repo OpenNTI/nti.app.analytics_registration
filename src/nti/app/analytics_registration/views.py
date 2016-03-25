@@ -16,6 +16,8 @@ from nti.app.analytics_registration import MessageFactory as _
 
 from zope import interface
 
+from zope.event import notify
+
 from zope.container.contained import Contained
 
 from zope.traversing.interfaces import IPathAdapter
@@ -28,6 +30,8 @@ from nti.app.base.abstract_views import AbstractAuthenticatedView
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
 from nti.app.analytics.utils import set_research_status
+
+from nti.app.analytics_registration.interfaces import UserRegistrationSurveySubmissionEvent
 
 from nti.analytics_registration.registration import get_registrations
 from nti.analytics_registration.registration import store_registration_data
@@ -107,7 +111,7 @@ class RegistrationPostView(AbstractAuthenticatedView,
 		store_registration_data( user, registration_id, data )
 		if allow_research:
 			store_registration_survey_data( user, registration_id, survey_data )
-		# FIXME: notify registration event
+		notify( UserRegistrationSurveySubmissionEvent( user, data ))
 		return hexc.HTTPNoContent()
 
 @view_config(route_name='objects.generic.traversal',
