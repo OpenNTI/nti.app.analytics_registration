@@ -77,20 +77,37 @@ class RegistrationPostView(AbstractAuthenticatedView,
 	We expect regular form POST data here, containing both
 	survey and registration information.
 	"""
+	def _get_research(self, values):
+		allow_research = values.get('allow_research')
+		return _is_true(allow_research)
+
+	def __get_registration_id_from_store(self, values):
+		return 	values.get( 'registration_id', None ) \
+			or 	values.get( 'RegistrationId', None )
+
+	def _get_registration_id(self, values):
+		# First check the body
+		result = self.__get_registration_id_from_store( values )
+		if result is None:
+			# Then the params
+			params = CaseInsensitiveDict( self.request.params )
+			result = self.__get_registration_id_from_store( params )
+		return result
 
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
-		allow_research = values.get('allow_research')
-		allow_research = _is_true(allow_research)
+		allow_research = self._get_research( values )
+		registration_id = self._get_registration_id( values )
 		user = self.remoteUser
 
 		set_research_status( user, allow_research )
 
 		# FIXME: Implement
 		data = survey_data = None
-		store_registration_data( user, data )
+		store_registration_data( user, registration_id, data )
 		if allow_research:
-			store_registration_survey_data( user, survey_data )
+			store_registration_survey_data( user, registration_id, survey_data )
+		# FIXME: notify registration event
 		return hexc.HTTPNoContent()
 
 @view_config(route_name='objects.generic.traversal',
@@ -106,10 +123,12 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 
 	def __call__(self):
 		values = CaseInsensitiveDict( self.readInput() )
-
 		username = values.get( 'user' ) or values.get( 'username' )
+		registration_id = values.get( 'registration_id' ) or values.get( 'RegistrationId' )
+
 		user = User.get_user( username )
-		registrations = get_registrations( user=user )
+		# Optionally filter by user or registration id.
+		registrations = get_registrations( user=user, registration_id=registration_id )
 		if not registrations:
 			return hexc.HTTPNotFound( _('There are no registrations') )
 
