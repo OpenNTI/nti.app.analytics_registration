@@ -36,8 +36,11 @@ from nti.analytics_registration.registration import store_registration_survey_da
 from nti.common.string import TRUE_VALUES
 from nti.common.maps import CaseInsensitiveDict
 
-from nti.dataserver.users import User
 from nti.dataserver import authorization as nauth
+
+from nti.dataserver.interfaces import IUser
+
+from nti.dataserver.users import User
 
 from nti.externalization.interfaces import StandardExternalFields
 
@@ -64,10 +67,10 @@ class RegistrationPathAdapter(Contained):
 
 @view_config(route_name='objects.generic.traversal',
 			 name=SUBMIT_REGISTRATION_INFO,
-			 context=RegistrationPathAdapter,
+			 context=IUser,
 			 renderer='rest',
 			 request_method='POST',
-			 permission=nauth.ACT_READ)
+			 permission=nauth.ACT_UPDATE)
 class RegistrationPostView(AbstractAuthenticatedView,
 						   ModeledContentUploadRequestUtilsMixin):
 	"""
@@ -76,7 +79,6 @@ class RegistrationPostView(AbstractAuthenticatedView,
 	"""
 
 	def __call__(self):
-		# FIXME: Decorate this submit view where? workspace? analytics workspace?
 		values = CaseInsensitiveDict(self.readInput())
 		allow_research = values.get('allow_research')
 		allow_research = _is_true(allow_research)
