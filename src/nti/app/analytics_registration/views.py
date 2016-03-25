@@ -87,12 +87,10 @@ class RegistrationPostView(AbstractAuthenticatedView,
 		set_research_status( user, allow_research )
 
 		# FIXME: Implement
-		# Will the data be keyed into survey and registration data?
 		data = survey_data = None
-		store_registration_data( user, survey_data )
-		# FIXME: Validate this logic
+		store_registration_data( user, data )
 		if allow_research:
-			store_registration_survey_data( user, data )
+			store_registration_survey_data( user, survey_data )
 		return hexc.HTTPNoContent()
 
 @view_config(route_name='objects.generic.traversal',
