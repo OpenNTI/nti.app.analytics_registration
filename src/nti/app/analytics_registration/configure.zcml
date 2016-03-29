@@ -11,7 +11,7 @@
 	<!-- Expose analytics registration views -->
 	<adapter name="registration"
 			 for="nti.dataserver.interfaces.IDataserverFolder pyramid.interfaces.IRequest"
-			 factory=".views.RegistrationPathAdapter"
+			 factory=".admin_views.RegistrationPathAdapter"
 			 provides="zope.traversing.interfaces.IPathAdapter" />
 
 </configure>
