@@ -140,8 +140,7 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 	An admin view to fetch all registration data.
 	"""
 
-	def _get_names_and_email(self, username):
-		user = User.get_user( username )
+	def _get_names_and_email(self, user, username):
 		profile = IUserProfile( user )
 		external_id = replace_username(username)
 
@@ -175,7 +174,11 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 
 		for registration in registrations:
 			username = registration.user.username
-			username, first, last, email = self._get_names_and_email( username )
+			user = User.get_user( username )
+			if user is None:
+				logger.warn( 'User not found (%s)', username )
+				continue
+			username, first, last, email = self._get_names_and_email( user, username )
 			line_data = (username,
 						 first,
 						 last,
