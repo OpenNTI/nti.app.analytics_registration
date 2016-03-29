@@ -12,9 +12,11 @@ logger = __import__('logging').getLogger(__name__)
 import csv
 import nameparser
 
-from io import BytesIO
-
 from nti.app.analytics_registration import MessageFactory as _
+
+from collections import namedtuple
+
+from io import BytesIO
 
 from zope import interface
 from zope import component
@@ -27,10 +29,16 @@ from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
+from nti.app.analytics_registration.view_mixins import RegistrationIDPostViewMixin
+
+from nti.app.base.abstract_views import get_source
 from nti.app.base.abstract_views import AbstractAuthenticatedView
+
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
 from nti.analytics_registration.registration import get_registrations
+from nti.analytics_registration.registration import store_registration_rules
+from nti.analytics_registration.registration import store_registration_sessions
 
 from nti.common.maps import CaseInsensitiveDict
 
@@ -47,6 +55,8 @@ from nti.externalization.interfaces import StandardExternalFields
 
 from nti.app.analytics_registration import REGISTRATION
 from nti.app.analytics_registration import REGISTRATION_READ_VIEW
+from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
+from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
 CLASS = StandardExternalFields.CLASS
 LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED
@@ -134,3 +144,92 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 		response.content_type = str('text/csv; charset=UTF-8')
 		response.content_disposition = b'attachment; filename="registrations.csv"'
 		return response
+
+RegistrationEnrollmentRule = namedtuple( 'RegistrationEnrollmentRule',
+										 ('school',
+										  'curriculum',
+										  'grade',
+										  'course_ntiid'))
+
+RegistrationSessions = namedtuple( 'RegistrationSessions',
+									('curriculum',
+									 'session_range',
+									 'course_ntiid'))
+
+@view_config(route_name='objects.generic.traversal',
+			 renderer='rest',
+			 permission=nauth.ACT_NTI_ADMIN,
+			 context=RegistrationPathAdapter,
+			 request_method='POST',
+			 name=REGISTRATION_AVAILABLE_SESSIONS)
+class RegistrationSessionsPostView(AbstractAuthenticatedView,
+								   RegistrationIDPostViewMixin):
+	"""
+	An admin view to push registration sessions to server. We expect
+	these columns in the inbound csv:
+
+		* course/curriculum
+		* session_range
+		* course_ntiid
+	"""
+
+	def __call__(self):
+		values = CaseInsensitiveDict(self.readInput())
+		registration_id = self._get_registration_id( values )
+		source = get_source(self.request, 'csv', 'input')
+		if source is None:
+			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
+
+		session_infos = []
+		for row in csv.reader(source):
+			if not row or row[0].startswith("#"):
+				continue
+			session_info = RegistrationSessions( row[0], row[1], row[2] )
+			session_infos.append( session_info )
+
+		if not session_infos:
+			raise hexc.HTTPUnprocessableEntity( _('No session information given.') )
+
+		store_registration_sessions( registration_id, session_infos )
+		return hexc.HTTPCreated()
+
+@view_config(route_name='objects.generic.traversal',
+			 renderer='rest',
+			 permission=nauth.ACT_NTI_ADMIN,
+			 context=RegistrationPathAdapter,
+			 request_method='POST',
+			 name=REGISTRATION_ENROLL_RULES)
+class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
+										  RegistrationIDPostViewMixin):
+	"""
+	An admin view to push registration rules to server. We expect
+	these columns in the inbound csv:
+
+		* school
+		* course/curriculum
+		* grade
+		* course_ntiid
+	"""
+
+	def __call__(self):
+		values = CaseInsensitiveDict(self.readInput())
+		registration_id = self._get_registration_id( values )
+		source = get_source(self.request, 'csv', 'input')
+		if source is None:
+			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
+
+		rules = []
+		for row in csv.reader(source):
+			if not row or row[0].startswith("#"):
+				continue
+			enroll_rule = RegistrationEnrollmentRule( row[0],
+													  row[1],
+													  row[2],
+													  row[3] )
+			rules.append( enroll_rule )
+
+		if not rules:
+			raise hexc.HTTPUnprocessableEntity( _('No rules given.') )
+
+		store_registration_rules( registration_id, rules )
+		return hexc.HTTPCreated()

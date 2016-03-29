@@ -17,12 +17,15 @@ from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
-from nti.app.base.abstract_views import AbstractAuthenticatedView
-from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
-
 from nti.app.analytics.utils import set_research_status
 
 from nti.app.analytics_registration.interfaces import UserRegistrationSurveySubmissionEvent
+
+from nti.app.analytics_registration.view_mixins import RegistrationIDPostViewMixin
+
+from nti.app.base.abstract_views import AbstractAuthenticatedView
+
+from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
 from nti.analytics_registration.registration import store_registration_data
 from nti.analytics_registration.registration import store_registration_survey_data
@@ -51,8 +54,9 @@ def _is_true(t):
 			 renderer='rest',
 			 request_method='POST',
 			 permission=nauth.ACT_UPDATE)
-class RegistrationPostView(AbstractAuthenticatedView,
-						   ModeledContentUploadRequestUtilsMixin):
+class SubmitRegistrationView(AbstractAuthenticatedView,
+						     ModeledContentUploadRequestUtilsMixin,
+						     RegistrationIDPostViewMixin):
 	"""
 	We expect regular form POST data here, containing both
 	survey and registration information.
@@ -61,19 +65,6 @@ class RegistrationPostView(AbstractAuthenticatedView,
 	def _get_research(self, values):
 		allow_research = values.get('allow_research')
 		return _is_true(allow_research)
-
-	def __get_registration_id_from_store(self, values):
-		return 	values.get( 'registration_id', None ) \
-			or 	values.get( 'RegistrationId', None )
-
-	def _get_registration_id(self, values):
-		# First check the body
-		result = self.__get_registration_id_from_store( values )
-		if result is None:
-			# Then the params
-			params = CaseInsensitiveDict( self.request.params )
-			result = self.__get_registration_id_from_store( params )
-		return result
 
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
