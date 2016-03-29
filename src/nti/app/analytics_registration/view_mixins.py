@@ -15,18 +15,20 @@ from pyramid import httpexceptions as hexc
 
 from nti.common.maps import CaseInsensitiveDict
 
-class RegistrationIDPostViewMixin(object):
+class RegistrationIDViewMixin(object):
 	"""
 	A mixin to get the required registration id.
 	"""
 
 	def __get_registration_id_from_store(self, values):
+		if not values:
+			return None
 		return 	values.get( 'registration_id', None ) \
 			or 	values.get( 'RegistrationId', None )
 
-	def _get_registration_id(self, values):
+	def _get_registration_id(self, values=None):
 		"""
-		Get the registration id associated with this POST.
+		Get the required registration id associated with this request.
 		"""
 		# First check the body
 		result = self.__get_registration_id_from_store( values )

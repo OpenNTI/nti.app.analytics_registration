@@ -29,14 +29,14 @@ from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
-from nti.app.analytics_registration.view_mixins import RegistrationIDPostViewMixin
+from nti.app.analytics_registration.view_mixins import RegistrationIDViewMixin
 
 from nti.app.base.abstract_views import get_source
 from nti.app.base.abstract_views import AbstractAuthenticatedView
 
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
-from nti.analytics_registration.registration import get_registrations
+from nti.analytics_registration.registration import get_user_registrations
 from nti.analytics_registration.registration import store_registration_rules
 from nti.analytics_registration.registration import store_registration_sessions
 
@@ -44,7 +44,6 @@ from nti.common.maps import CaseInsensitiveDict
 
 from nti.dataserver import authorization as nauth
 
-from nti.dataserver.interfaces import IUser
 from nti.dataserver.interfaces import IUsernameSubstitutionPolicy
 
 from nti.dataserver.users import User
@@ -111,7 +110,8 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 
 		user = User.get_user( username )
 		# Optionally filter by user or registration id.
-		registrations = get_registrations( user=user, registration_id=registration_id )
+		registrations = get_user_registrations( user=user,
+												registration_id=registration_id )
 		if not registrations:
 			return hexc.HTTPNotFound( _('There are no registrations') )
 
@@ -163,7 +163,8 @@ RegistrationSessions = namedtuple( 'RegistrationSessions',
 			 request_method='POST',
 			 name=REGISTRATION_AVAILABLE_SESSIONS)
 class RegistrationSessionsPostView(AbstractAuthenticatedView,
-								   RegistrationIDPostViewMixin):
+								   ModeledContentUploadRequestUtilsMixin,
+								   RegistrationIDViewMixin):
 	"""
 	An admin view to push registration sessions to server. We expect
 	these columns in the inbound csv:
@@ -200,7 +201,8 @@ class RegistrationSessionsPostView(AbstractAuthenticatedView,
 			 request_method='POST',
 			 name=REGISTRATION_ENROLL_RULES)
 class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
-										  RegistrationIDPostViewMixin):
+										  ModeledContentUploadRequestUtilsMixin,
+										  RegistrationIDViewMixin):
 	"""
 	An admin view to push registration rules to server. We expect
 	these columns in the inbound csv:
