@@ -10,11 +10,14 @@ __docformat__ = "restructuredtext en"
 logger = __import__('logging').getLogger(__name__)
 
 import csv
+import nameparser
+
 from io import BytesIO
 
 from nti.app.analytics_registration import MessageFactory as _
 
 from zope import interface
+from zope import component
 
 from zope.event import notify
 
@@ -43,8 +46,11 @@ from nti.common.maps import CaseInsensitiveDict
 from nti.dataserver import authorization as nauth
 
 from nti.dataserver.interfaces import IUser
+from nti.dataserver.interfaces import IUsernameSubstitutionPolicy
 
 from nti.dataserver.users import User
+
+from nti.dataserver.users.interfaces import IUserProfile
 
 from nti.externalization.interfaces import StandardExternalFields
 
@@ -57,6 +63,13 @@ LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED
 
 def _is_true(t):
 	result = bool(t and str(t).lower() in TRUE_VALUES)
+	return result
+
+def replace_username(username):
+	substituter = component.queryUtility(IUsernameSubstitutionPolicy)
+	if substituter is None:
+		return username
+	result = substituter.replace(username) or username
 	return result
 
 @interface.implementer(IPathAdapter)
@@ -81,6 +94,7 @@ class RegistrationPostView(AbstractAuthenticatedView,
 	We expect regular form POST data here, containing both
 	survey and registration information.
 	"""
+
 	def _get_research(self, values):
 		allow_research = values.get('allow_research')
 		return _is_true(allow_research)
@@ -111,6 +125,7 @@ class RegistrationPostView(AbstractAuthenticatedView,
 		store_registration_data( user, registration_id, data )
 		if allow_research:
 			store_registration_survey_data( user, registration_id, survey_data )
+		# FIXME: Enroll and return
 		notify( UserRegistrationSurveySubmissionEvent( user, data ))
 		return hexc.HTTPNoContent()
 
@@ -125,6 +140,22 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 	An admin view to fetch all registration data.
 	"""
 
+	def _get_names_and_email(self, username):
+		user = User.get_user( username )
+		profile = IUserProfile( user )
+		external_id = replace_username(username)
+
+		realname = profile.realname or ''
+		if realname and '@' not in realname and realname != username:
+			human_name = nameparser.HumanName(realname)
+			firstname = human_name.first or ''
+			lastname = human_name.last or ''
+		else:
+			firstname = ''
+			lastname = ''
+		email = getattr( profile, 'email', '' )
+		return external_id, firstname, lastname, email
+
 	def __call__(self):
 		values = CaseInsensitiveDict( self.readInput() )
 		username = values.get( 'user' ) or values.get( 'username' )
@@ -138,15 +169,21 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 
 		stream = BytesIO()
 		csv_writer = csv.writer( stream )
-		# FIXME: Validate these columns
-		header_row = [u'username', u'school', u'grade', u'session_date', u'curriculum']
+		header_row = [u'username', u'first_name', u'last_name', u'email', u'phone',
+					  u'school', u'grade', u'session_range', u'curriculum']
 		csv_writer.writerow( header_row )
 
 		for registration in registrations:
-			line_data = (registration.user.username,
+			username = registration.user.username
+			username, first, last, email = self._get_names_and_email( username )
+			line_data = (username,
+						 first,
+						 last,
+						 email,
+						 registration.phone,
 						 registration.school,
 						 registration.grade_teaching,
-						 registration.session_date,
+						 registration.session_range,
 						 registration.curriculum)
 			csv_writer.writerow( line_data )
 
@@ -155,4 +192,3 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 		response.content_type = str('text/csv; charset=UTF-8')
 		response.content_disposition = b'attachment; filename="registrations.csv"'
 		return response
-
