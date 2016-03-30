@@ -19,8 +19,6 @@ from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
-from nti.app.analytics.utils import set_research_status
-
 from nti.app.analytics_registration.view_mixins import RegistrationIDViewMixin
 
 from nti.app.base.abstract_views import AbstractAuthenticatedView
@@ -37,7 +35,6 @@ from nti.analytics_registration.registration import get_registration_sessions
 from nti.analytics_registration.registration import store_registration_survey_data
 from nti.analytics_registration.registration import get_course_ntiid_for_user_registration
 
-from nti.common.string import TRUE_VALUES
 from nti.common.maps import CaseInsensitiveDict
 
 from nti.contenttypes.courses.interfaces import ES_CREDIT_NONDEGREE
@@ -61,10 +58,6 @@ from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
 CLASS = StandardExternalFields.CLASS
 MIMETYPE = StandardExternalFields.MIMETYPE
 
-def _is_true(t):
-	result = bool(t and str(t).lower() in TRUE_VALUES)
-	return result
-
 RegistrationData = namedtuple( 'RegistrationData',
 								('school',
 								 'grade_teaching',
@@ -86,15 +79,10 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 	survey and registration information.
 	"""
 
-	def _get_research(self, values):
-		allow_research = values.get('allow_research')
-		return _is_true(allow_research)
-
 	def _get_registration_data(self, values):
 		"""
-		From the given values dict, return a tuple of
-		registration data and the remainder key/value dict
-		of survey responses.
+		From the given values dict, return a tuple of registration data
+		and the remainder key/value dict of survey responses.
 		"""
 		try:
 			school = values.pop( 'school' )
@@ -125,7 +113,8 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 			raise hexc.HTTPUnprocessableEntity( _('Course not found during registration.') )
 
 		manager = ICourseEnrollmentManager(course)
-		# XXX: Client specific
+		# XXX: We do not have an comparable scope for this type
+		# of enrollment, CREDIT_NONDEGREE is an approximation.
 		record = manager.enroll( user, scope=ES_CREDIT_NONDEGREE )
 
 		# TODO: Cleanup
@@ -136,7 +125,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 					 user, entry_ntiid )
 		return record
 
-	def _store_data(self, user, allow_research, registration_id, values):
+	def _store_data(self, user, registration_id, values):
 		"""
 		Store the registration and survey data
 		"""
@@ -147,26 +136,23 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		except DuplicateUserRegistrationException:
 			raise hexc.HTTPUnprocessableEntity( _('User already registered for this session.') )
 
-		if allow_research:
-			try:
-				store_registration_survey_data( user, timestamp,
-												registration_id,
-												survey_data )
-			except NoUserRegistrationException:
-				# Should not be possible.
-				raise hexc.HTTPUnprocessableEntity( _('User not yet registered.') )
-			except DuplicateRegistrationSurveyException:
-				raise hexc.HTTPUnprocessableEntity(
-								_('User already submitted survey for this session.') )
+		try:
+			store_registration_survey_data( user, timestamp,
+											registration_id,
+											survey_data )
+		except NoUserRegistrationException:
+			# Should not be possible.
+			raise hexc.HTTPUnprocessableEntity( _('User not yet registered.') )
+		except DuplicateRegistrationSurveyException:
+			raise hexc.HTTPUnprocessableEntity(
+							_('User already submitted survey for this session.') )
 
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
-		allow_research = self._get_research( values )
 		registration_id = self._get_registration_id( values )
 		user = self.remoteUser
 
-		set_research_status( user, allow_research )
-		self._store_data( user, allow_research, registration_id, values )
+		self._store_data( user, registration_id, values )
 		record = self._enroll( user, registration_id )
 		return record
 

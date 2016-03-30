@@ -97,8 +97,8 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 					  'course': self.curriculum,
 					  'phone': '867-5309',
 					  'session': 'July 25-26 (M/T)',
-					  'allow_research': False,
-					  'survey_one' : 'bleh' }
+					  'survey_freetext' : 'bleh',
+					  'survey_list' : [1,2,3,4,5] }
 		form_data.update( reg_params )
 
 		# Missing field
@@ -136,10 +136,6 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'phone' ), is_( '867-5309' ) )
 		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
 
-		# Now with survey data
-		survey_data = dict( form_data )
-		survey_data['allow_research'] = True
-
 		# Already registered.
-		self.testapp.post_json( submit_url, survey_data, status=422 )
+		self.testapp.post_json( submit_url, form_data, status=422 )
 
