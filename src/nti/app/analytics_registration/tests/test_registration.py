@@ -22,8 +22,6 @@ from six import StringIO
 from nti.app.testing.decorators import WithSharedApplicationMockDS
 from nti.app.testing.application_webtest import ApplicationLayerTest
 
-from nti.dataserver.tests import mock_dataserver
-
 from nti.app.products.courseware.tests import InstructedCourseApplicationTestLayer
 
 from nti.app.analytics_registration import REGISTRATION
@@ -55,30 +53,8 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 			result = f.read()
 		return result
 
-	@WithSharedApplicationMockDS(testapp=True, users=True)
-	def test_registration(self):
-		# Admin views
-		# Empty registrations
-		reg_params = {'registration_id' : self.registration_id }
-		self.testapp.get( self.registrations_url,
-						  params=reg_params,
-						  status=404 )
-
-		# Upload registration rules.
-		rules_csv = self._get_csv_data( 'course_rules.csv' )
-		sessions_csv = self._get_csv_data( 'course_sessions.csv' )
-		self.testapp.post( self.sessions_url,
-							upload_files=[('sessions', 'foo.csv', sessions_csv)],
-						   	params=reg_params)
-		self.testapp.post( self.rules_url,
-							upload_files=[('rules', 'foo.csv', rules_csv)],
-							params=reg_params)
-
-		get_rules_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % REGISTRATION_ENROLL_RULES
-		submit_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % SUBMIT_REGISTRATION_INFO
-
-		# Fetch rules
-		res = self.testapp.get( get_rules_url, params=reg_params )
+	def _test_rules(self, url, reg_params):
+		res = self.testapp.get( url, params=reg_params )
 		res = res.json_body
 		assert_that( res.get( 'MimeType' ), is_('application/vnd.nextthought.analytics.registrationrules') )
 		assert_that( res.get( 'Class' ), is_('RegistrationRules') )
@@ -91,6 +67,43 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		# Six sessions for course
 		assert_that( res.get( 'CourseSessions' ), has_entry( self.curriculum,
 															 has_length( 6 )))
+
+	def _upload_rules(self, reg_params, get_rules_url, sessions=True, rules=True):
+		"""
+		Uploads data and validates state.
+		"""
+		if sessions:
+			sessions_csv = self._get_csv_data( 'course_sessions.csv' )
+			self.testapp.post( self.sessions_url,
+								upload_files=[('sessions', 'foo.csv', sessions_csv)],
+							   	params=reg_params)
+		if rules:
+			rules_csv = self._get_csv_data( 'course_rules.csv' )
+			self.testapp.post( self.rules_url,
+								upload_files=[('rules', 'foo.csv', rules_csv)],
+								params=reg_params)
+		# Validate
+		self._test_rules( get_rules_url, reg_params )
+
+	@WithSharedApplicationMockDS(testapp=True, users=True)
+	def test_registration(self):
+		# Admin views
+		# Empty registrations
+		reg_params = {'registration_id' : self.registration_id }
+		self.testapp.get( self.registrations_url,
+						  params=reg_params,
+						  status=404 )
+
+		get_rules_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % REGISTRATION_ENROLL_RULES
+		submit_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % SUBMIT_REGISTRATION_INFO
+
+		# Upload registration rules.
+		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=True )
+
+		# We can re-upload and still be valid
+		self._upload_rules( reg_params, get_rules_url, sessions=False, rules=True )
+		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=False )
+		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=True )
 
 		form_data = { 'school': self.school,
 					  'grade': 6,
