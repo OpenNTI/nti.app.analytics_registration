@@ -192,7 +192,7 @@ class RegistrationRulesView(AbstractAuthenticatedView,
 			raise hexc.HTTPNotFound( _('No registration rules found.') )
 
 		result = LocatedExternalDict()
-		result[CLASS] = 'RegistrationsRules'
+		result[CLASS] = 'RegistrationRules'
 		result[MIMETYPE] = 'application/vnd.nextthought.analytics.registrationrules'
 
 		result['RegistrationRules'] = registration_dict = {}

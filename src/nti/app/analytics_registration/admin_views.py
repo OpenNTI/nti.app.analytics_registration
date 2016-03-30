@@ -188,8 +188,10 @@ class RegistrationSessionsPostView(AbstractAuthenticatedView,
 		# Skip header
 		next( csv_input, None )
 		for row in csv_input:
-			if not row or row[0].startswith("#"):
+			if not row or row[0].startswith("#") or not ''.join( row ).strip():
 				continue
+			if not (row[0] and row[1] and row[2]):
+				raise hexc.HTTPUnprocessableEntity( 'Line with missing data (%s)' % row )
 			session_info = RegistrationSessions( row[0], row[1], row[2] )
 			session_infos.append( session_info )
 
@@ -231,8 +233,10 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 		# Skip header
 		next( csv_input, None )
 		for row in csv_input:
-			if not row or row[0].startswith("#") or not ''.join( row ):
+			if not row or row[0].startswith("#") or not ''.join( row ).strip():
 				continue
+			if not (row[0] and row[1] and row[2] and row[3]):
+				raise hexc.HTTPUnprocessableEntity( 'Line with missing data (%s)' % row )
 			enroll_rule = RegistrationEnrollmentRule( row[0],
 													  row[1],
 													  row[2],
