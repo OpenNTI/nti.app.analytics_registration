@@ -15,15 +15,11 @@ from collections import namedtuple
 
 from datetime import datetime
 
-from zope.event import notify
-
 from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
 from nti.app.analytics.utils import set_research_status
-
-from nti.app.analytics_registration.interfaces import UserRegistrationSurveySubmissionEvent
 
 from nti.app.analytics_registration.view_mixins import RegistrationIDViewMixin
 
@@ -39,9 +35,16 @@ from nti.analytics_registration.registration import get_registration_rules
 from nti.analytics_registration.registration import store_registration_data
 from nti.analytics_registration.registration import get_registration_sessions
 from nti.analytics_registration.registration import store_registration_survey_data
+from nti.analytics_registration.registration import get_course_ntiid_for_user_registration
 
 from nti.common.string import TRUE_VALUES
 from nti.common.maps import CaseInsensitiveDict
+
+from nti.contenttypes.courses.interfaces import ES_CREDIT_NONDEGREE
+
+from nti.contenttypes.courses.interfaces import ICourseInstance
+from nti.contenttypes.courses.interfaces import ICourseCatalogEntry
+from nti.contenttypes.courses.interfaces import ICourseEnrollmentManager
 
 from nti.dataserver import authorization as nauth
 
@@ -49,6 +52,8 @@ from nti.dataserver.interfaces import IUser
 
 from nti.externalization.interfaces import LocatedExternalDict
 from nti.externalization.interfaces import StandardExternalFields
+
+from nti.ntiids.ntiids import find_object_with_ntiid
 
 from nti.app.analytics_registration import SUBMIT_REGISTRATION_INFO
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
@@ -106,14 +111,35 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 											  session_range )
 		return registration_data, values
 
-	def __call__(self):
-		values = CaseInsensitiveDict(self.readInput())
-		allow_research = self._get_research( values )
-		registration_id = self._get_registration_id( values )
-		user = self.remoteUser
+	def _enroll(self, user, registration_id):
+		"""
+		Enroll the user in the course mapping to their registration.
+		"""
+		course_ntiid = get_course_ntiid_for_user_registration( user, registration_id )
+		course = None
+		if course_ntiid:
+			course = find_object_with_ntiid( course_ntiid )
+			course = ICourseInstance( course, None )
 
-		set_research_status( user, allow_research )
+		if course is None:
+			raise hexc.HTTPUnprocessableEntity( _('Course not found during registration.') )
 
+		manager = ICourseEnrollmentManager(course)
+		# XXX: Client specific
+		record = manager.enroll( user, scope=ES_CREDIT_NONDEGREE )
+
+		# TODO: Cleanup
+		#notify( UserRegistrationSurveySubmissionEvent( user, data ))
+		entry = ICourseCatalogEntry( course, None )
+		entry_ntiid = entry.ntiid if entry is not None else ''
+		logger.info( 'User enrolled in course during registration (%s) (%s)',
+					 user, entry_ntiid )
+		return record
+
+	def _store_data(self, user, allow_research, registration_id, values):
+		"""
+		Store the registration and survey data
+		"""
 		timestamp = datetime.utcnow()
 		data, survey_data = self._get_registration_data( values )
 		try:
@@ -132,9 +158,18 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 			except DuplicateRegistrationSurveyException:
 				raise hexc.HTTPUnprocessableEntity(
 								_('User already submitted survey for this session.') )
-		# FIXME: Enroll and return record.
-		notify( UserRegistrationSurveySubmissionEvent( user, data ))
-		return hexc.HTTPNoContent()
+
+	def __call__(self):
+		values = CaseInsensitiveDict(self.readInput())
+		allow_research = self._get_research( values )
+		registration_id = self._get_registration_id( values )
+		user = self.remoteUser
+
+		set_research_status( user, allow_research )
+		self._store_data( user, allow_research, registration_id, values )
+		# FIXME: Disabled for now.
+# 		record = self._enroll( user, registration_id )
+# 		return record
 
 @view_config(route_name='objects.generic.traversal',
 			 renderer='rest',
