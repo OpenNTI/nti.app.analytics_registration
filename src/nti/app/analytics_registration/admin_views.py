@@ -104,7 +104,7 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 		return external_id, firstname, lastname, email
 
 	def __call__(self):
-		values = CaseInsensitiveDict( self.readInput() )
+		values = CaseInsensitiveDict( self.request.params )
 		username = values.get( 'user' ) or values.get( 'username' )
 		registration_id = values.get( 'registration_id' ) or values.get( 'RegistrationId' )
 
