@@ -11,6 +11,10 @@ logger = __import__('logging').getLogger(__name__)
 
 from nti.app.analytics_registration import MessageFactory as _
 
+from collections import namedtuple
+
+from datetime import datetime
+
 from zope.event import notify
 
 from pyramid.view import view_config
@@ -26,6 +30,10 @@ from nti.app.analytics_registration.view_mixins import RegistrationIDViewMixin
 from nti.app.base.abstract_views import AbstractAuthenticatedView
 
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
+
+from nti.analytics_registration.exceptions import NoUserRegistrationException
+from nti.analytics_registration.exceptions import DuplicateUserRegistrationException
+from nti.analytics_registration.exceptions import DuplicateRegistrationSurveyException
 
 from nti.analytics_registration.registration import get_registration_rules
 from nti.analytics_registration.registration import store_registration_data
@@ -47,11 +55,17 @@ from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
 
 CLASS = StandardExternalFields.CLASS
 MIMETYPE = StandardExternalFields.MIMETYPE
-LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED
 
 def _is_true(t):
 	result = bool(t and str(t).lower() in TRUE_VALUES)
 	return result
+
+RegistrationData = namedtuple( 'RegistrationData',
+								('school',
+								 'grade_teaching',
+								 'curriculum',
+								 'phone',
+								 'session_range'))
 
 @view_config(route_name='objects.generic.traversal',
 			 name=SUBMIT_REGISTRATION_INFO,
@@ -71,6 +85,27 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		allow_research = values.get('allow_research')
 		return _is_true(allow_research)
 
+	def _get_registration_data(self, values):
+		"""
+		From the given values dict, return a tuple of
+		registration data and the remainder key/value dict
+		of survey responses.
+		"""
+		try:
+			school = values.pop( 'school' )
+			grade_teaching = values.pop( 'grade' )
+			curriculum = values.pop( 'course' )
+			phone = values.pop( 'phone' )
+			session_range = values.pop( 'session' )
+		except KeyError:
+			raise hexc.HTTPUnprocessableEntity( _('Missing registration value.') )
+		registration_data = RegistrationData( school,
+											  grade_teaching,
+											  curriculum,
+											  phone,
+											  session_range )
+		return registration_data, values
+
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
 		allow_research = self._get_research( values )
@@ -79,12 +114,25 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 
 		set_research_status( user, allow_research )
 
-		# FIXME: Implement
-		data = survey_data = None
-		store_registration_data( user, registration_id, data )
+		timestamp = datetime.utcnow()
+		data, survey_data = self._get_registration_data( values )
+		try:
+			store_registration_data( user, timestamp, registration_id, data )
+		except DuplicateUserRegistrationException:
+			raise hexc.HTTPUnprocessableEntity( _('User already registered for this session.') )
+
 		if allow_research:
-			store_registration_survey_data( user, registration_id, survey_data )
-		# FIXME: Enroll and return
+			try:
+				store_registration_survey_data( user, timestamp,
+												registration_id,
+												survey_data )
+			except NoUserRegistrationException:
+				# Should not be possible.
+				raise hexc.HTTPUnprocessableEntity( _('User not yet registered.') )
+			except DuplicateRegistrationSurveyException:
+				raise hexc.HTTPUnprocessableEntity(
+								_('User already submitted survey for this session.') )
+		# FIXME: Enroll and return record.
 		notify( UserRegistrationSurveySubmissionEvent( user, data ))
 		return hexc.HTTPNoContent()
 
