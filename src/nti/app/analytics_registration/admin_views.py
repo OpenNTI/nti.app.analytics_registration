@@ -83,7 +83,8 @@ class RegistrationPathAdapter(Contained):
 			 context=RegistrationPathAdapter,
 			 request_method='GET',
 			 name=REGISTRATION_READ_VIEW)
-class RegistrationCSVView(AbstractAuthenticatedView):
+class RegistrationCSVView(AbstractAuthenticatedView,
+						  RegistrationIDViewMixin):
 	"""
 	An admin view to fetch all registration data.
 	"""
@@ -106,7 +107,7 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 	def __call__(self):
 		values = CaseInsensitiveDict( self.request.params )
 		username = values.get( 'user' ) or values.get( 'username' )
-		registration_id = values.get( 'registration_id' ) or values.get( 'RegistrationId' )
+		registration_id = self._get_registration_id()
 
 		user = User.get_user( username )
 		# Optionally filter by user or registration id.
@@ -183,7 +184,10 @@ class RegistrationSessionsPostView(AbstractAuthenticatedView,
 			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
 
 		session_infos = []
-		for row in csv.reader(source):
+		csv_input = csv.reader( source )
+		# Skip header
+		next( csv_input, None )
+		for row in csv_input:
 			if not row or row[0].startswith("#"):
 				continue
 			session_info = RegistrationSessions( row[0], row[1], row[2] )
@@ -223,7 +227,10 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
 
 		rules = []
-		for row in csv.reader(source):
+		csv_input = csv.reader( source )
+		# Skip header
+		next( csv_input, None )
+		for row in csv_input:
 			if not row or row[0].startswith("#") or not ''.join( row ):
 				continue
 			enroll_rule = RegistrationEnrollmentRule( row[0],
