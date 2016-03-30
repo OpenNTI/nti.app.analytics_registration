@@ -167,9 +167,8 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 
 		set_research_status( user, allow_research )
 		self._store_data( user, allow_research, registration_id, values )
-		# FIXME: Disabled for now.
-# 		record = self._enroll( user, registration_id )
-# 		return record
+		record = self._enroll( user, registration_id )
+		return record
 
 @view_config(route_name='objects.generic.traversal',
 			 renderer='rest',

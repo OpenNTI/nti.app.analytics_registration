@@ -8,37 +8,16 @@ __docformat__ = "restructuredtext en"
 # pylint: disable=W0212,R0904
 
 from hamcrest import is_
-from hamcrest import none
-from hamcrest import is_in
 from hamcrest import is_not
-from hamcrest import has_key
-from hamcrest import contains
-from hamcrest import not_none
-from hamcrest import has_item
-from hamcrest import has_items
 from hamcrest import has_entry
 from hamcrest import has_length
 from hamcrest import assert_that
-from hamcrest import greater_than
-from hamcrest import has_property
 does_not = is_not
 
-from nti.schema.testing import validly_provides
-
-import fudge
-
 import os
-from itertools import chain
+import csv
 
-import simplejson
-
-from nti.contenttypes.courses.interfaces import ICourseInstance
-
-from nti.contenttypes.presentation.utils import prepare_json_text
-
-from nti.externalization.externalization import to_external_object
-
-from nti.ntiids.ntiids import find_object_with_ntiid
+from six import StringIO
 
 from nti.app.testing.decorators import WithSharedApplicationMockDS
 from nti.app.testing.application_webtest import ApplicationLayerTest
@@ -95,9 +74,10 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 							upload_files=[('rules', 'foo.csv', rules_csv)],
 							params=reg_params)
 
-		# Fetch rules
 		get_rules_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % REGISTRATION_ENROLL_RULES
 		submit_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % SUBMIT_REGISTRATION_INFO
+
+		# Fetch rules
 		res = self.testapp.get( get_rules_url, params=reg_params )
 		res = res.json_body
 		assert_that( res.get( 'MimeType' ), is_('application/vnd.nextthought.analytics.registrationrules') )
@@ -111,3 +91,55 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		# Six sessions for course
 		assert_that( res.get( 'CourseSessions' ), has_entry( self.curriculum,
 															 has_length( 6 )))
+
+		form_data = { 'school': self.school,
+					  'grade': 6,
+					  'course': self.curriculum,
+					  'phone': '867-5309',
+					  'session': 'July 25-26 (M/T)',
+					  'allow_research': False,
+					  'survey_one' : 'bleh' }
+		form_data.update( reg_params )
+
+		# Missing field
+		bad_data = dict( form_data )
+		bad_data.pop( 'course' )
+		self.testapp.post_json( submit_url, bad_data, status=422 )
+
+		# No mapping for grade
+		bad_grade = dict( form_data )
+		bad_grade['grade'] = 7
+		self.testapp.post_json( submit_url, bad_grade, status=422 )
+
+		# No mapping for school
+		bad_school = dict( form_data )
+		bad_school['school'] = 'HardKnocks'
+		self.testapp.post_json( submit_url, bad_school, status=422 )
+
+		# Submit with enrollment
+		res = self.testapp.post_json( submit_url, form_data )
+		res = res.json_body
+		assert_that( res.get( 'Class' ), is_('CourseInstanceEnrollment') )
+		assert_that( res.get( 'MimeType' ),
+					 is_('application/vnd.nextthought.courseware.courseinstanceenrollment') )
+		assert_that( res.get( 'CatalogEntryNTIID' ), is_( self.course_ntiid ) )
+
+		# Get registrations again
+		res = self.testapp.get( self.registrations_url, params=reg_params )
+		csv_output = tuple( csv.DictReader( StringIO( res.body ) ) )
+		assert_that( csv_output, has_length( 1 ))
+		registered = csv_output[0]
+		assert_that( registered.get( 'username' ), is_( 'sjohnson@nextthought.com' ) )
+		assert_that( registered.get( 'grade' ), is_( self.grade ) )
+		assert_that( registered.get( 'curriculum' ), is_( self.curriculum ) )
+		assert_that( registered.get( 'school' ), is_( self.school ) )
+		assert_that( registered.get( 'phone' ), is_( '867-5309' ) )
+		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
+
+		# Now with survey data
+		survey_data = dict( form_data )
+		survey_data['allow_research'] = True
+
+		# Already registered.
+		self.testapp.post_json( submit_url, survey_data, status=422 )
+
