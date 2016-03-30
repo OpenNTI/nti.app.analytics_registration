@@ -39,13 +39,14 @@ from nti.dataserver import authorization as nauth
 
 from nti.dataserver.interfaces import IUser
 
+from nti.externalization.interfaces import LocatedExternalDict
 from nti.externalization.interfaces import StandardExternalFields
 
 from nti.app.analytics_registration import SUBMIT_REGISTRATION_INFO
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
-from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
 CLASS = StandardExternalFields.CLASS
+MIMETYPE = StandardExternalFields.MIMETYPE
 LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED
 
 def _is_true(t):
@@ -92,25 +93,37 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 			 permission=nauth.ACT_READ,
 			 context=IUser,
 			 request_method='GET',
-			 name=REGISTRATION_AVAILABLE_SESSIONS)
-class RegistrationSessionsView(AbstractAuthenticatedView,
-							   RegistrationIDViewMixin):
-	"""
-	"""
-
-	def __call__(self):
-		registration_id = self._get_registration_id()
-
-@view_config(route_name='objects.generic.traversal',
-			 renderer='rest',
-			 permission=nauth.ACT_READ,
-			 context=IUser,
-			 request_method='GET',
 			 name=REGISTRATION_ENROLL_RULES)
-class RegistrationEnrollRulesView(AbstractAuthenticatedView,
-								  RegistrationIDViewMixin):
+class RegistrationRulesView(AbstractAuthenticatedView,
+							RegistrationIDViewMixin):
 	"""
+	Retrieves the registration possibilities. Results
+	should be returned in feed order.
 	"""
 
 	def __call__(self):
 		registration_id = self._get_registration_id()
+		rules = get_registration_rules( registration_id )
+		sessions = get_registration_sessions( registration_id )
+		if not rules or not sessions:
+			raise hexc.HTTPNotFound( _('No registration rules found.') )
+
+		result = LocatedExternalDict()
+		result[CLASS] = 'RegistrationsRules'
+		result[MIMETYPE] = 'application/vnd.nextthought.analytics.registrationrules'
+
+		result['RegistrationRules'] = registration_dict = {}
+		result['CourseSessions'] = course_session_dict = {}
+
+		# Set the courses available per school and grade.
+		for rule in rules:
+			grade_dict = registration_dict.setdefault( rule.school, dict() )
+			course_list = grade_dict.setdefault( rule.grade_teaching, list() )
+			course_list.append( rule.curriculum )
+
+		# Set the sessions available per course/curriculum.
+		for session in sessions:
+			session_list = course_session_dict.setdefault( session.curriculum, list() )
+			session_list.append( session.session_range )
+
+		return result

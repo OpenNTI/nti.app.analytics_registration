@@ -121,6 +121,7 @@ class RegistrationCSVView(AbstractAuthenticatedView):
 					  u'school', u'grade', u'session_range', u'curriculum']
 		csv_writer.writerow( header_row )
 
+		registrations = sorted( registrations, key=lambda x: x.timestamp )
 		for registration in registrations:
 			username = registration.user.username
 			user = User.get_user( username )

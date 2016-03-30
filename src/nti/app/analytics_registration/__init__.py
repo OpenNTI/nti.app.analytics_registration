@@ -15,9 +15,6 @@ MessageFactory = zope.i18nmessageid.MessageFactory(__name__)
 #: The registration path part.
 REGISTRATION = 'registration'
 
-#: A view to return available sessions for enrollment.
-REGISTRATION_AVAILABLE_SESSIONS = 'RegistrationAvailableSessions'
-
 #: A POST view to submit registration/survey.
 SUBMIT_REGISTRATION_INFO = 'SubmitRegistration'
 
