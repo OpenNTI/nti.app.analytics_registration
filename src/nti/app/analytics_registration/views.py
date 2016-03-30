@@ -117,8 +117,6 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		# of enrollment, CREDIT_NONDEGREE is an approximation.
 		record = manager.enroll( user, scope=ES_CREDIT_NONDEGREE )
 
-		# TODO: Cleanup
-		#notify( UserRegistrationSurveySubmissionEvent( user, data ))
 		entry = ICourseCatalogEntry( course, None )
 		entry_ntiid = entry.ntiid if entry is not None else ''
 		logger.info( 'User enrolled in course during registration (%s) (%s)',
