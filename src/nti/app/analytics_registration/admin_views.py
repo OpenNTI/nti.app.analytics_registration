@@ -178,7 +178,7 @@ class RegistrationSessionsPostView(AbstractAuthenticatedView,
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
 		registration_id = self._get_registration_id( values )
-		source = get_source(self.request, 'csv', 'input')
+		source = get_source(self.request, 'sessions', 'csv', 'input')
 		if source is None:
 			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
 
@@ -218,13 +218,13 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
 		registration_id = self._get_registration_id( values )
-		source = get_source(self.request, 'csv', 'input')
+		source = get_source(self.request, 'rules', 'csv', 'input')
 		if source is None:
 			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
 
 		rules = []
 		for row in csv.reader(source):
-			if not row or row[0].startswith("#"):
+			if not row or row[0].startswith("#") or not ''.join( row ):
 				continue
 			enroll_rule = RegistrationEnrollmentRule( row[0],
 													  row[1],
