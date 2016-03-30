@@ -192,7 +192,8 @@ class RegistrationSessionsPostView(AbstractAuthenticatedView,
 		if not session_infos:
 			raise hexc.HTTPUnprocessableEntity( _('No session information given.') )
 
-		store_registration_sessions( registration_id, session_infos )
+		store_count = store_registration_sessions( registration_id, session_infos )
+		logger.info( 'Registration session rules stored (count=%s)', store_count )
 		return hexc.HTTPCreated()
 
 @view_config(route_name='objects.generic.traversal',
@@ -234,5 +235,7 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 		if not rules:
 			raise hexc.HTTPUnprocessableEntity( _('No rules given.') )
 
-		store_registration_rules( registration_id, rules )
+		store_count = store_registration_rules( registration_id, rules )
+		logger.info( 'Registration enrollment rules stored (count=%s)',
+					 store_count )
 		return hexc.HTTPCreated()
