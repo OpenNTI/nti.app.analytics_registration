@@ -226,7 +226,7 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 		registration_id = self._get_registration_id( values )
 		source = get_source(self.request, 'rules', 'csv', 'input')
 		if source is None:
-			raise hexc.HTTPUnprocessableEntity( _('No CSV file found.') )
+			raise hexc.HTTPUnprocessableEntity( _('No CSV input given.') )
 
 		rules = []
 		csv_input = csv.reader( source )
