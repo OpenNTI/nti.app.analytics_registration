@@ -9,9 +9,11 @@ __docformat__ = "restructuredtext en"
 
 from hamcrest import is_
 from hamcrest import is_not
+from hamcrest import has_items
 from hamcrest import has_entry
 from hamcrest import has_length
 from hamcrest import assert_that
+from hamcrest import has_properties
 does_not = is_not
 
 import os
@@ -21,6 +23,12 @@ from six import StringIO
 
 from nti.app.testing.decorators import WithSharedApplicationMockDS
 from nti.app.testing.application_webtest import ApplicationLayerTest
+
+import nti.dataserver.tests.mock_dataserver as mock_dataserver
+
+from nti.dataserver.users import User
+
+from nti.analytics_registration.registration import get_user_registrations
 
 from nti.app.products.courseware.tests import InstructedCourseApplicationTestLayer
 
@@ -105,13 +113,15 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=False )
 		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=True )
 
+		list_response = [1,2,3,4,5]
+		text_response = 'Jax'
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.curriculum,
 					  'phone': '867-5309',
 					  'session': 'July 25-26 (M/T)',
-					  'survey_freetext' : 'bleh',
-					  'survey_list' : [1,2,3,4,5] }
+					  'survey_text' : text_response,
+					  'survey_list' : list_response }
 		form_data.update( reg_params )
 
 		# Missing field
@@ -152,3 +162,23 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		# Already registered.
 		self.testapp.post_json( submit_url, form_data, status=422 )
 
+		# Test db state
+		with mock_dataserver.mock_db_trans(self.ds):
+			# Empty
+			new_user1 = User.create_user( username='new_user1' )
+			user_registrations = get_user_registrations( new_user1, self.registration_id )
+			assert_that( user_registrations, has_length( 0 ))
+
+			# User's survey responses
+			user = User.get_user( 'sjohnson@nextthought.com' )
+			user_registrations = get_user_registrations( user, self.registration_id )
+			assert_that( user_registrations, has_length( 1 ))
+			user_registration = user_registrations[0]
+			assert_that( user_registration.survey_submission, has_length( 1 ))
+			survey = user_registration.survey_submission[0]
+			assert_that( survey.details, has_length( 2 ))
+			assert_that( survey.details, has_items(
+											has_properties( 'question_id', 'survey_list',
+															'response', list_response ),
+											has_properties( 'question_id', 'survey_text',
+															'response', text_response ) ))

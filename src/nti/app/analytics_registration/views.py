@@ -84,6 +84,8 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		From the given values dict, return a tuple of registration data
 		and the remainder key/value dict of survey responses.
 		"""
+		for non_survey_key in ( 'registration_id', 'RegistrationId' ):
+			values.pop( non_survey_key, None )
 		try:
 			school = values.pop( 'school' )
 			grade_teaching = values.pop( 'grade' )
