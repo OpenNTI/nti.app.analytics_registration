@@ -86,11 +86,12 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		"""
 		for non_survey_key in ( 'registration_id', 'RegistrationId' ):
 			values.pop( non_survey_key, None )
+		# Optional
+		phone = values.pop( 'phone', None )
 		try:
 			school = values.pop( 'school' )
 			grade_teaching = values.pop( 'grade' )
 			curriculum = values.pop( 'course' )
-			phone = values.pop( 'phone' )
 			session_range = values.pop( 'session' )
 		except KeyError:
 			raise hexc.HTTPUnprocessableEntity( _('Missing registration value.') )

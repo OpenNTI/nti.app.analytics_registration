@@ -8,6 +8,7 @@ __docformat__ = "restructuredtext en"
 # pylint: disable=W0212,R0904
 
 from hamcrest import is_
+from hamcrest import none
 from hamcrest import is_not
 from hamcrest import has_items
 from hamcrest import has_entry
@@ -118,7 +119,6 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.curriculum,
-					  'phone': '867-5309',
 					  'session': 'July 25-26 (M/T)',
 					  'survey_text' : text_response,
 					  'survey_list' : list_response }
@@ -156,7 +156,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'grade' ), is_( self.grade ) )
 		assert_that( registered.get( 'curriculum' ), is_( self.curriculum ) )
 		assert_that( registered.get( 'school' ), is_( self.school ) )
-		assert_that( registered.get( 'phone' ), is_( '867-5309' ) )
+		assert_that( registered.get( 'phone' ), is_( '' ) )
 		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
 
 		# Already registered.
