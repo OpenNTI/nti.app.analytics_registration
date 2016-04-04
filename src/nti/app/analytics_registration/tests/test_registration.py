@@ -252,6 +252,8 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		self.testapp.post_json( delete_url, {}, status=422 )
 
 		self.testapp.post_json( delete_url, {'user':'sjohnson@nextthought.com'} )
+		self._test_enrolled( 'sjohnson@nextthought.com', enrolled=False )
+		self._test_enrolled( new_username )
 
 		# Validate one user remains
 		csv_output = _get_registrations_csv()
