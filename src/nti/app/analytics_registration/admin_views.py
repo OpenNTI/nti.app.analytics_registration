@@ -38,9 +38,13 @@ from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtils
 
 from nti.analytics_registration.registration import get_user_registrations
 from nti.analytics_registration.registration import store_registration_rules
+from nti.analytics_registration.registration import delete_user_registrations
 from nti.analytics_registration.registration import store_registration_sessions
 
 from nti.common.maps import CaseInsensitiveDict
+
+from nti.contenttypes.courses.interfaces import ICourseInstance
+from nti.contenttypes.courses.interfaces import ICourseEnrollmentManager
 
 from nti.dataserver import authorization as nauth
 
@@ -51,6 +55,8 @@ from nti.dataserver.users import User
 from nti.dataserver.users.interfaces import IUserProfile
 
 from nti.externalization.interfaces import StandardExternalFields
+
+from nti.ntiids.ntiids import find_object_with_ntiid
 
 from nti.app.analytics_registration import REGISTRATION
 from nti.app.analytics_registration import REGISTRATION_READ_VIEW
@@ -250,3 +256,52 @@ class RegistrationEnrollmentRulesPostView(AbstractAuthenticatedView,
 		logger.info( 'Registration enrollment rules stored (count=%s)',
 					 store_count )
 		return hexc.HTTPCreated()
+
+@view_config(route_name='objects.generic.traversal',
+			 renderer='rest',
+			 permission=nauth.ACT_NTI_ADMIN,
+			 context=RegistrationPathAdapter,
+			 request_method='POST',
+			 name='RemoveRegistrations')
+class RemoveRegistrationsView(AbstractAuthenticatedView,
+							  ModeledContentUploadRequestUtilsMixin,
+							  RegistrationIDViewMixin):
+	"""
+	Delete the registrations by user and registration id. This should
+	only be used by admins in test environments. By default, users
+	are unenrolled from corresponding course.
+	"""
+
+	def __call__(self):
+		params = CaseInsensitiveDict(self.readInput())
+		username = params.get( 'user' ) or params.get( 'username' )
+		registration_id = self._get_registration_id( params, strict=False )
+		unenroll = params.get( 'unenroll', True )
+		user = None
+		if username:
+			user = User.get_user( username )
+
+		# For safety, make sure they are sure.
+		if user is None and not registration_id and not params.get( 'force' ):
+			raise hexc.HTTPUnprocessableEntity(
+							_('No username or registration id, must force.') )
+
+		deleted = delete_user_registrations( user, registration_id )
+		logger.info( 'Deleted %s user registrations (user=%s) (registration=%s)',
+					len( deleted ), username, registration_id )
+
+		# Now unenroll our users...?
+		if unenroll:
+			for registration, course_ntiid in deleted:
+				course = find_object_with_ntiid( course_ntiid )
+				course = ICourseInstance( course, None )
+				if course is not None:
+					manager = ICourseEnrollmentManager( course )
+					manager.drop( registration.user )
+					logger.info( 'User unenrolled (%s) (%s)',
+								 registration.user, course_ntiid )
+				else:
+					logger.warn( 'No course found for (%s) (%s)',
+								 registration.user, course_ntiid )
+		return hexc.HTTPNoContent()
+

@@ -8,11 +8,12 @@ __docformat__ = "restructuredtext en"
 # pylint: disable=W0212,R0904
 
 from hamcrest import is_
-from hamcrest import none
 from hamcrest import is_not
+from hamcrest import has_item
 from hamcrest import has_items
 from hamcrest import has_entry
 from hamcrest import has_length
+from hamcrest import has_entries
 from hamcrest import assert_that
 from hamcrest import has_properties
 does_not = is_not
@@ -22,8 +23,15 @@ import csv
 
 from six import StringIO
 
+from zope import component
+from zope.intid import IIntIds
+
 from nti.app.testing.decorators import WithSharedApplicationMockDS
 from nti.app.testing.application_webtest import ApplicationLayerTest
+
+from nti.contenttypes.courses.interfaces import ICourseCatalogEntry
+from nti.contenttypes.courses.utils import get_enrollment_catalog
+from nti.contenttypes.courses.index import IX_USERNAME
 
 import nti.dataserver.tests.mock_dataserver as mock_dataserver
 
@@ -94,6 +102,22 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		# Validate
 		self._test_rules( get_rules_url, reg_params )
 
+	def _test_enrolled(self, username, enrolled=True):
+		"""
+		Validate the given username is enrolled in our course.
+		"""
+		with mock_dataserver.mock_db_trans(self.ds, site_name='platform.ou.edu'):
+			catalog = get_enrollment_catalog()
+			records = tuple( catalog.apply( {IX_USERNAME:{'any_of':(username,)}}))
+			if not enrolled:
+				assert_that( records, has_length( 0 ))
+			else:
+				assert_that( records, has_length( 1 ))
+				intids = component.getUtility(IIntIds)
+				course = intids.queryObject( records[0] ).CourseInstance
+				entry = ICourseCatalogEntry( course )
+				assert_that( entry.ntiid, is_( self.course_ntiid ))
+
 	@WithSharedApplicationMockDS(testapp=True, users=True)
 	def test_registration(self):
 		# Admin views
@@ -105,6 +129,8 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 
 		get_rules_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % REGISTRATION_ENROLL_RULES
 		submit_url = '/dataserver2/users/sjohnson@nextthought.com/%s' % SUBMIT_REGISTRATION_INFO
+		new_username = 'Phil_Krundle'
+		submit_url2 = '/dataserver2/users/%s/%s' % (new_username, SUBMIT_REGISTRATION_INFO)
 
 		# Upload registration rules.
 		self._upload_rules( reg_params, get_rules_url, sessions=True, rules=True )
@@ -116,10 +142,11 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 
 		list_response = [1,2,3,4,5]
 		text_response = 'Jax'
+		session = 'July 25-26 (M/T)'
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.curriculum,
-					  'session': 'July 25-26 (M/T)',
+					  'session': session,
 					  'survey_text' : text_response,
 					  'survey_list' : list_response }
 		form_data.update( reg_params )
@@ -147,9 +174,15 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 					 is_('application/vnd.nextthought.courseware.courseinstanceenrollment') )
 		assert_that( res.get( 'CatalogEntryNTIID' ), is_( self.course_ntiid ) )
 
+		self._test_enrolled( 'sjohnson@nextthought.com' )
+
+		def _get_registrations_csv( reg_id=self.registration_id ):
+			csv_params = {'registration_id':reg_id}
+			res = self.testapp.get( self.registrations_url, params=csv_params )
+			return tuple( csv.DictReader( StringIO( res.body ) ) )
+
 		# Get registrations again
-		res = self.testapp.get( self.registrations_url, params=reg_params )
-		csv_output = tuple( csv.DictReader( StringIO( res.body ) ) )
+		csv_output = _get_registrations_csv()
 		assert_that( csv_output, has_length( 1 ))
 		registered = csv_output[0]
 		assert_that( registered.get( 'username' ), is_( 'sjohnson@nextthought.com' ) )
@@ -165,7 +198,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		# Test db state
 		with mock_dataserver.mock_db_trans(self.ds):
 			# Empty
-			new_user1 = User.create_user( username='new_user1' )
+			new_user1 = self._create_user( username=new_username )
 			user_registrations = get_user_registrations( new_user1, self.registration_id )
 			assert_that( user_registrations, has_length( 0 ))
 
@@ -182,3 +215,64 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 															'response', list_response ),
 											has_properties( 'question_id', 'survey_text',
 															'response', text_response ) ))
+
+		# Two users, two different sessions
+		registration_id2 = 'Registration2'
+		session2 = 'Session Range2'
+		form_data2 = dict( form_data )
+		form_data2['registration_id'] = registration_id2
+		form_data2['session'] = session2
+		new_user_env = self._make_extra_environ( new_username )
+		self.testapp.post_json( submit_url, form_data2 )
+		self._test_enrolled( new_username, enrolled=False )
+		self.testapp.post_json( submit_url2, form_data, extra_environ=new_user_env )
+		self._test_enrolled( new_username )
+		self.testapp.post_json( submit_url2, form_data2, extra_environ=new_user_env )
+
+		csv_output = _get_registrations_csv()
+		assert_that( csv_output, has_length( 2 ))
+		assert_that( csv_output, has_items(
+									has_entries( 'username', 'sjohnson@nextthought.com',
+												 'session_range', session ),
+									has_entries( 'username', new_username,
+												 'session_range', session )))
+
+		csv_output = _get_registrations_csv( registration_id2 )
+		assert_that( csv_output, has_length( 2 ))
+		assert_that( csv_output, has_items(
+									has_entries( 'username', 'sjohnson@nextthought.com',
+												 'session_range', session2 ),
+									has_entries( 'username', new_username,
+												 'session_range', session2 )))
+
+		# Test admin view removing registrations
+		delete_url = '/dataserver2/registration/RemoveRegistrations'
+
+		# No params
+		self.testapp.post_json( delete_url, {}, status=422 )
+
+		self.testapp.post_json( delete_url, {'user':'sjohnson@nextthought.com'} )
+
+		# Validate one user remains
+		csv_output = _get_registrations_csv()
+		assert_that( csv_output, has_length( 1 ))
+		assert_that( csv_output, has_item(
+									has_entries( 'username', new_username,
+												 'session_range', session )))
+
+		csv_output = _get_registrations_csv( registration_id2 )
+		assert_that( csv_output, has_length( 1 ))
+		assert_that( csv_output, has_item(
+									has_entries( 'username', new_username,
+												 'session_range', session2 )))
+
+		# Now delete by registration id
+		self.testapp.post_json( delete_url, {'registration_id': self.registration_id} )
+
+		self.testapp.get( self.registrations_url, params=reg_params, status=404 )
+
+		csv_output = _get_registrations_csv( registration_id2 )
+		assert_that( csv_output, has_length( 1 ))
+		assert_that( csv_output, has_item(
+									has_entries( 'username', new_username,
+												 'session_range', session2 )))

@@ -26,9 +26,10 @@ class RegistrationIDViewMixin(object):
 		return 	values.get( 'registration_id', None ) \
 			or 	values.get( 'RegistrationId', None )
 
-	def _get_registration_id(self, values=None):
+	def _get_registration_id(self, values=None, strict=True):
 		"""
 		Get the required registration id associated with this request.
+		If `strict`, will raise a 422 if not given.
 		"""
 		# First check the body
 		result = self.__get_registration_id_from_store( values )
@@ -36,7 +37,7 @@ class RegistrationIDViewMixin(object):
 			# Then the params
 			params = CaseInsensitiveDict( self.request.params )
 			result = self.__get_registration_id_from_store( params )
-		if result is None:
+		if result is None and strict:
 			raise hexc.HTTPUnprocessableEntity( _('No registration id given.') )
 		return result
 
