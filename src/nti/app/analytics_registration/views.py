@@ -88,6 +88,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 			values.pop( non_survey_key, None )
 		# Optional
 		phone = values.pop( 'phone', None )
+		version = values.pop( 'version', None ) or values.pop( 'survey_version', None )
 		try:
 			school = values.pop( 'school' )
 			grade_teaching = values.pop( 'grade' )
@@ -100,7 +101,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 											  curriculum,
 											  phone,
 											  session_range )
-		return registration_data, values
+		return registration_data, version, values
 
 	def _enroll(self, user, registration_id):
 		"""
@@ -131,7 +132,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		Store the registration and survey data
 		"""
 		timestamp = datetime.utcnow()
-		data, survey_data = self._get_registration_data( values )
+		data, version, survey_data = self._get_registration_data( values )
 		try:
 			store_registration_data( user, timestamp, registration_id, data )
 		except DuplicateUserRegistrationException:
@@ -140,6 +141,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		try:
 			store_registration_survey_data( user, timestamp,
 											registration_id,
+											version,
 											survey_data )
 		except NoUserRegistrationException:
 			# Should not be possible.

@@ -216,12 +216,13 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 											has_properties( 'question_id', 'survey_text',
 															'response', text_response ) ))
 
-		# Two users, two different sessions
+		# Two users, two different sessions; form_data2 has new session, reg_id, version.
 		registration_id2 = 'Registration2'
 		session2 = 'Session Range2'
 		form_data2 = dict( form_data )
 		form_data2['registration_id'] = registration_id2
 		form_data2['session'] = session2
+		form_data2['version'] = 'Survey.v1'
 		new_user_env = self._make_extra_environ( new_username )
 		self.testapp.post_json( submit_url, form_data2 )
 		self._test_enrolled( new_username, enrolled=False )
