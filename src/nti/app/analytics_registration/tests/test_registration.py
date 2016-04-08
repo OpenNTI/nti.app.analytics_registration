@@ -143,10 +143,12 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		list_response = [1,2,3,4,5]
 		text_response = 'Jax'
 		session = 'July 25-26 (M/T)'
+		employee_id = 'Employee Eleventeen'
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.curriculum,
 					  'session': session,
+					  'employee_id': employee_id,
 					  'survey_text' : text_response,
 					  'survey_list' : list_response }
 		form_data.update( reg_params )
@@ -191,6 +193,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'school' ), is_( self.school ) )
 		assert_that( registered.get( 'phone' ), is_( '' ) )
 		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
+		assert_that( registered.get( 'employee_id' ), is_( employee_id ))
 
 		# Already registered.
 		self.testapp.post_json( submit_url, form_data, status=422 )

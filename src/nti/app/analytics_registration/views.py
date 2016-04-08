@@ -62,6 +62,7 @@ RegistrationData = namedtuple( 'RegistrationData',
 								('school',
 								 'grade_teaching',
 								 'curriculum',
+								 'employee_id',
 								 'phone',
 								 'session_range'))
 
@@ -94,11 +95,13 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 			grade_teaching = values.pop( 'grade' )
 			curriculum = values.pop( 'course' )
 			session_range = values.pop( 'session' )
+			employee_id = values.pop( 'employee_id' )
 		except KeyError:
 			raise hexc.HTTPUnprocessableEntity( _('Missing registration value.') )
 		registration_data = RegistrationData( school,
 											  grade_teaching,
 											  curriculum,
+											  employee_id,
 											  phone,
 											  session_range )
 		return registration_data, version, values
@@ -129,7 +132,7 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 
 	def _store_data(self, user, registration_id, values):
 		"""
-		Store the registration and survey data
+		Store the registration and survey data.
 		"""
 		timestamp = datetime.utcnow()
 		data, version, survey_data = self._get_registration_data( values )

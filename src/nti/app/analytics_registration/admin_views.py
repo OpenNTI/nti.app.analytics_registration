@@ -124,7 +124,8 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 
 		stream = BytesIO()
 		csv_writer = csv.writer( stream )
-		header_row = [u'username', u'first_name', u'last_name', u'email', u'phone',
+		header_row = [u'username', u'first_name', u'last_name',
+					  u'employee_id', u'email', u'phone',
 					  u'school', u'grade', u'session_range', u'curriculum']
 		csv_writer.writerow( header_row )
 
@@ -139,6 +140,7 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 			line_data = (username,
 						 first,
 						 last,
+						 registration.employee_id,
 						 email,
 						 registration.phone,
 						 registration.school,
