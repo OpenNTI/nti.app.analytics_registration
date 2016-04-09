@@ -117,8 +117,8 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 
 		user = User.get_user( username )
 		# Optionally filter by user or registration id.
-		registrations = get_user_registrations( user=user,
-												registration_id=registration_id )
+		registrations = get_user_registrations( user,
+												registration_id )
 		if not registrations:
 			return hexc.HTTPNotFound( _('There are no registrations') )
 
@@ -292,7 +292,7 @@ class RemoveRegistrationsView(AbstractAuthenticatedView,
 		logger.info( 'Deleted %s user registrations (user=%s) (registration=%s)',
 					len( deleted ), username, registration_id )
 
-		# Now unenroll our users...?
+		# Now unenroll our users.
 		if unenroll:
 			for registration, course_ntiid in deleted:
 				course = find_object_with_ntiid( course_ntiid )
@@ -306,4 +306,3 @@ class RemoveRegistrationsView(AbstractAuthenticatedView,
 					logger.warn( 'No course found for (%s) (%s)',
 								 registration.user, course_ntiid )
 		return hexc.HTTPNoContent()
-

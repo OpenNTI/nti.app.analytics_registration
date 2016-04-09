@@ -76,9 +76,12 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( res.get( 'MimeType' ), is_('application/vnd.nextthought.analytics.registrationrules') )
 		assert_that( res.get( 'Class' ), is_('RegistrationRules') )
 		assert_that( res.get( 'RegistrationRules' ), has_length( 1 ) )
-		assert_that( res.get( 'RegistrationRules', has_entry( self.school,
-															  has_entry( self.grade,
-																		 is_( self.curriculum )))))
+		assert_that( res.get( 'RegistrationRules',
+								has_entry( self.school,
+									has_entry( self.grade,
+											has_item(
+												has_entries( 'course_ntiid', self.course_ntiid,
+															 'course', self.curriculum ))))))
 		# Six courses
 		assert_that( res.get( 'CourseSessions' ), has_length( 6 ) )
 		# Six sessions for course
@@ -92,13 +95,13 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		if sessions:
 			sessions_csv = self._get_csv_data( 'course_sessions.csv' )
 			self.testapp.post( self.sessions_url,
-								upload_files=[('sessions', 'foo.csv', sessions_csv)],
-							   	params=reg_params)
+							   upload_files=[('sessions', 'foo.csv', sessions_csv)],
+							   params=reg_params)
 		if rules:
 			rules_csv = self._get_csv_data( 'course_rules.csv' )
 			self.testapp.post( self.rules_url,
-								upload_files=[('rules', 'foo.csv', rules_csv)],
-								params=reg_params)
+							   upload_files=[('rules', 'foo.csv', rules_csv)],
+							   params=reg_params)
 		# Validate
 		self._test_rules( get_rules_url, reg_params )
 
@@ -146,7 +149,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		employee_id = 'Employee Eleventeen'
 		form_data = { 'school': self.school,
 					  'grade': 6,
-					  'course': self.curriculum,
+					  'course': self.course_ntiid,
 					  'session': session,
 					  'employee_id': employee_id,
 					  'survey_text' : text_response,
@@ -227,6 +230,12 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		form_data2['session'] = session2
 		form_data2['version'] = 'Survey.v1'
 		new_user_env = self._make_extra_environ( new_username )
+
+		# With no rules for reg_id, the supplied cousre_ntiid does not validate.
+		self.testapp.post_json( submit_url, form_data2, status=422 )
+
+		self._upload_rules( {'registration_id': registration_id2},
+							get_rules_url, sessions=True, rules=True )
 		self.testapp.post_json( submit_url, form_data2 )
 		self._test_enrolled( new_username, enrolled=False )
 		self.testapp.post_json( submit_url2, form_data, extra_environ=new_user_env )

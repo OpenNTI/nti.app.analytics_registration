@@ -26,6 +26,7 @@ from nti.app.base.abstract_views import AbstractAuthenticatedView
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
 from nti.analytics_registration.exceptions import NoUserRegistrationException
+from nti.analytics_registration.exceptions import InvalidCourseMappingException
 from nti.analytics_registration.exceptions import DuplicateUserRegistrationException
 from nti.analytics_registration.exceptions import DuplicateRegistrationSurveyException
 
@@ -33,7 +34,6 @@ from nti.analytics_registration.registration import get_registration_rules
 from nti.analytics_registration.registration import store_registration_data
 from nti.analytics_registration.registration import get_registration_sessions
 from nti.analytics_registration.registration import store_registration_survey_data
-from nti.analytics_registration.registration import get_course_ntiid_for_user_registration
 
 from nti.common.maps import CaseInsensitiveDict
 
@@ -61,7 +61,7 @@ MIMETYPE = StandardExternalFields.MIMETYPE
 RegistrationData = namedtuple( 'RegistrationData',
 								('school',
 								 'grade_teaching',
-								 'curriculum',
+								 'course_ntiid',
 								 'employee_id',
 								 'phone',
 								 'session_range'))
@@ -93,24 +93,23 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		try:
 			school = values.pop( 'school' )
 			grade_teaching = values.pop( 'grade' )
-			curriculum = values.pop( 'course' )
+			course_ntiid = values.pop( 'course' )
 			session_range = values.pop( 'session' )
 			employee_id = values.pop( 'employee_id' )
 		except KeyError:
 			raise hexc.HTTPUnprocessableEntity( _('Missing registration value.') )
 		registration_data = RegistrationData( school,
 											  grade_teaching,
-											  curriculum,
+											  course_ntiid,
 											  employee_id,
 											  phone,
 											  session_range )
 		return registration_data, version, values
 
-	def _enroll(self, user, registration_id):
+	def _enroll(self, user, course_ntiid):
 		"""
 		Enroll the user in the course mapping to their registration.
 		"""
-		course_ntiid = get_course_ntiid_for_user_registration( user, registration_id )
 		course = None
 		if course_ntiid:
 			course = find_object_with_ntiid( course_ntiid )
@@ -139,7 +138,11 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		try:
 			store_registration_data( user, timestamp, registration_id, data )
 		except DuplicateUserRegistrationException:
-			raise hexc.HTTPUnprocessableEntity( _('User already registered for this session.') )
+			raise hexc.HTTPUnprocessableEntity(
+					_('User already registered for this session.') )
+		except InvalidCourseMappingException:
+			raise hexc.HTTPUnprocessableEntity(
+					_('Course given is invalid for this registration info.') )
 
 		try:
 			store_registration_survey_data( user, timestamp,
@@ -152,14 +155,15 @@ class SubmitRegistrationView(AbstractAuthenticatedView,
 		except DuplicateRegistrationSurveyException:
 			raise hexc.HTTPUnprocessableEntity(
 							_('User already submitted survey for this session.') )
+		return data.course_ntiid
 
 	def __call__(self):
 		values = CaseInsensitiveDict(self.readInput())
 		registration_id = self._get_registration_id( values )
 		user = self.remoteUser
 
-		self._store_data( user, registration_id, values )
-		record = self._enroll( user, registration_id )
+		course_ntiid = self._store_data( user, registration_id, values )
+		record = self._enroll( user, course_ntiid )
 		return record
 
 @view_config(route_name='objects.generic.traversal',
@@ -193,7 +197,9 @@ class RegistrationRulesView(AbstractAuthenticatedView,
 		for rule in rules:
 			grade_dict = registration_dict.setdefault( rule.school, dict() )
 			course_list = grade_dict.setdefault( rule.grade_teaching, list() )
-			course_list.append( rule.curriculum )
+			val = { 'course_ntiid': rule.course_ntiid,
+					'course': rule.curriculum }
+			course_list.append( val )
 
 		# Set the sessions available per course/curriculum.
 		for session in sessions:
