@@ -82,11 +82,10 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 											has_item(
 												has_entries( 'course_ntiid', self.course_ntiid,
 															 'course', self.curriculum ))))))
-		# Six courses
-		assert_that( res.get( 'CourseSessions' ), has_length( 6 ) )
-		# Six sessions for course
-		assert_that( res.get( 'CourseSessions' ), has_entry( self.curriculum,
-															 has_length( 6 )))
+		# We map to one course...
+		assert_that( res.get( 'CourseSessions' ), has_length( 1 ) )
+		assert_that( res.get( 'CourseSessions' ), has_entry( self.course_ntiid,
+															 has_length( 36 )))
 
 	def _upload_rules(self, reg_params, get_rules_url, sessions=True, rules=True):
 		"""

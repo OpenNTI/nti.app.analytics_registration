@@ -203,7 +203,7 @@ class RegistrationRulesView(AbstractAuthenticatedView,
 
 		# Set the sessions available per course/curriculum.
 		for session in sessions:
-			session_list = course_session_dict.setdefault( session.curriculum, list() )
+			session_list = course_session_dict.setdefault( session.course_ntiid, list() )
 			session_list.append( session.session_range )
 
 		return result
