@@ -146,10 +146,12 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		list_response = [1,2,3,4,5]
 		text_response = 'Jax'
 		session = 'July 25-26 (M/T)'
+		phone = '867-5309'
 		employee_id = 'Employee Eleventeen'
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.course_ntiid,
+					  'phone' : phone,
 					  'session': session,
 					  'employee_id': employee_id,
 					  'survey_text' : text_response,
@@ -194,7 +196,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'grade' ), is_( self.grade ) )
 		assert_that( registered.get( 'curriculum' ), is_( self.curriculum ) )
 		assert_that( registered.get( 'school' ), is_( self.school ) )
-		assert_that( registered.get( 'phone' ), is_( '' ) )
+		assert_that( registered.get( 'phone' ), is_( phone ) )
 		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
 		assert_that( registered.get( 'employee_id' ), is_( employee_id ))
 
