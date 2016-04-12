@@ -145,12 +145,11 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		list_response = [1,2,3,4,5]
 		text_response = 'Jax'
 		session = 'July 25-26 (M/T)'
-		phone = '867-5309'
+		phone = ''
 		employee_id = 'Employee Eleventeen'
 		form_data = { 'school': self.school,
 					  'grade': 6,
 					  'course': self.course_ntiid,
-					  'phone' : phone,
 					  'session': session,
 					  'employee_id': employee_id,
 					  'survey_text' : text_response,
