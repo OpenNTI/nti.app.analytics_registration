@@ -137,6 +137,8 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 				logger.warn( 'User not found (%s)', username )
 				continue
 			username, first, last, email = self._get_names_and_email( user, username )
+			if email and email.endswith( '@nextthought.com' ):
+				continue
 			line_data = (username,
 						 first,
 						 last,
