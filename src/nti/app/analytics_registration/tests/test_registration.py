@@ -8,6 +8,7 @@ __docformat__ = "restructuredtext en"
 # pylint: disable=W0212,R0904
 
 from hamcrest import is_
+from hamcrest import none
 from hamcrest import is_not
 from hamcrest import has_item
 from hamcrest import has_items
@@ -15,6 +16,7 @@ from hamcrest import has_entry
 from hamcrest import has_length
 from hamcrest import has_entries
 from hamcrest import assert_that
+from hamcrest import has_property
 from hamcrest import has_properties
 does_not = is_not
 
@@ -26,16 +28,22 @@ from six import StringIO
 from zope import component
 from zope.intid import IIntIds
 
+from nti.analytics.stats.interfaces import IAnalyticsStatsSource
+
 from nti.app.testing.decorators import WithSharedApplicationMockDS
 from nti.app.testing.application_webtest import ApplicationLayerTest
 
+from nti.contenttypes.courses.interfaces import ICourseInstance
 from nti.contenttypes.courses.interfaces import ICourseCatalogEntry
+
 from nti.contenttypes.courses.utils import get_enrollment_catalog
 from nti.contenttypes.courses.index import IX_USERNAME
 
 import nti.dataserver.tests.mock_dataserver as mock_dataserver
 
 from nti.dataserver.users import User
+
+from nti.ntiids.ntiids import find_object_with_ntiid
 
 from nti.analytics_registration.registration import get_user_registrations
 
@@ -47,12 +55,15 @@ from nti.app.analytics_registration import SUBMIT_REGISTRATION_INFO
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
 from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
+from nti.analytics_registration.stats import _RegistrationStatsSource
+
 class TestAnalyticsRegistration(ApplicationLayerTest):
 
 	layer = InstructedCourseApplicationTestLayer
 
 	default_origin = b'http://janux.ou.edu'
 	course_ntiid = 'tag:nextthought.com,2011-10:NTI-CourseInfo-Fall2015_CS_1323'
+	#course_ntiid2 = 'tag:nextthought.com,2011-10:OU-HTML-CLC3403_LawAndJustice.course_info'
 
 	sessions_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_AVAILABLE_SESSIONS )
 	rules_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_ENROLL_RULES )
@@ -195,7 +206,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'curriculum' ), is_( self.curriculum ) )
 		assert_that( registered.get( 'school' ), is_( self.school ) )
 		assert_that( registered.get( 'phone' ), is_( phone ) )
-		assert_that( registered.get( 'session_range' ), is_( 'July 25-26 (M/T)' ) )
+		assert_that( registered.get( 'session_range' ), is_( session ) )
 		assert_that( registered.get( 'employee_id' ), is_( employee_id ))
 
 		# Already registered.
@@ -258,6 +269,25 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 									has_entries( 'username', new_username,
 												 'session_range', session2 )))
 
+		# Test stats
+		with mock_dataserver.mock_db_trans(self.ds, site_name='platform.ou.edu'):
+			course = find_object_with_ntiid( self.course_ntiid )
+			course = ICourseInstance( course )
+			subs = component.subscribers( (user, course), IAnalyticsStatsSource )
+			subs = [x for x in subs if isinstance(x, _RegistrationStatsSource)]
+			assert_that( subs, has_length( 1 ))
+			stats = subs[0]
+			# We have multiple records mapping to the same course
+			# assert_that( stats.RegistrationSurveyStats.survey_version, none())
+			# assert_that( stats.RegistrationStats.session_range, is_(session))
+			assert_that( stats.RegistrationSurveyStats, has_property( 'survey_text', text_response ))
+			assert_that( stats.RegistrationSurveyStats, has_property( 'survey_list', list_response ))
+			assert_that( stats.RegistrationStats.school, is_(self.school))
+			assert_that( stats.RegistrationStats.grade_teaching, is_(self.grade))
+			assert_that( stats.RegistrationStats.curriculum, is_(self.curriculum))
+			assert_that( stats.RegistrationStats.employee_id, is_(employee_id))
+			assert_that( stats.RegistrationStats.phone, none())
+
 		# Test admin view removing registrations
 		delete_url = '/dataserver2/registration/RemoveRegistrations'
 
@@ -291,3 +321,4 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( csv_output, has_item(
 									has_entries( 'username', new_username,
 												 'session_range', session2 )))
+
