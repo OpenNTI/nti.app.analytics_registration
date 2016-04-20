@@ -26,7 +26,6 @@ import csv
 from six import StringIO
 
 from zope import component
-from zope.intid import IIntIds
 
 from nti.analytics.stats.interfaces import IAnalyticsStatsSource
 
@@ -36,8 +35,7 @@ from nti.app.testing.application_webtest import ApplicationLayerTest
 from nti.contenttypes.courses.interfaces import ICourseInstance
 from nti.contenttypes.courses.interfaces import ICourseCatalogEntry
 
-from nti.contenttypes.courses.utils import get_enrollment_catalog
-from nti.contenttypes.courses.index import IX_USERNAME
+from nti.contenttypes.courses.utils import get_enrollments
 
 import nti.dataserver.tests.mock_dataserver as mock_dataserver
 
@@ -120,14 +118,12 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		Validate the given username is enrolled in our course.
 		"""
 		with mock_dataserver.mock_db_trans(self.ds, site_name='platform.ou.edu'):
-			catalog = get_enrollment_catalog()
-			records = tuple( catalog.apply( {IX_USERNAME:{'any_of':(username,)}}))
+			records = tuple( get_enrollments( username ) )
 			if not enrolled:
 				assert_that( records, has_length( 0 ))
 			else:
 				assert_that( records, has_length( 1 ))
-				intids = component.getUtility(IIntIds)
-				course = intids.queryObject( records[0] ).CourseInstance
+				course = records[0].CourseInstance
 				entry = ICourseCatalogEntry( course )
 				assert_that( entry.ntiid, is_( self.course_ntiid ))
 
