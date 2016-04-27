@@ -37,11 +37,14 @@ from nti.app.base.abstract_views import AbstractAuthenticatedView
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
 from nti.analytics_registration.registration import get_user_registrations
+from nti.analytics_registration.registration import get_all_survey_questions
 from nti.analytics_registration.registration import store_registration_rules
 from nti.analytics_registration.registration import delete_user_registrations
 from nti.analytics_registration.registration import store_registration_sessions
 
 from nti.common.maps import CaseInsensitiveDict
+
+from nti.common.property import Lazy
 
 from nti.contenttypes.courses.interfaces import ICourseInstance
 from nti.contenttypes.courses.interfaces import ICourseEnrollmentManager
@@ -61,6 +64,7 @@ from nti.ntiids.ntiids import find_object_with_ntiid
 from nti.app.analytics_registration import REGISTRATION
 from nti.app.analytics_registration import REGISTRATION_READ_VIEW
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
+from nti.app.analytics_registration import REGISTRATION_SURVEY_READ_VIEW
 from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
 CLASS = StandardExternalFields.CLASS
@@ -110,6 +114,33 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 		email = getattr( profile, 'email', '' )
 		return external_id, firstname, lastname, email
 
+	def _get_header_row(self):
+		header_row = [u'username', u'first_name', u'last_name',
+					  u'employee_id', u'email', u'phone',
+					  u'school', u'grade', u'session_range', u'curriculum']
+		return header_row
+
+	def _get_row_data(self, registration):
+		username = registration.user.username
+		user = User.get_user( username )
+		if user is None:
+			logger.warn( 'User not found (%s)', username )
+			return
+		username, first, last, email = self._get_names_and_email( user, username )
+		if email and email.endswith( '@nextthought.com' ):
+			return
+		line_data = {'username': username,
+					 'first_name': first,
+					 'last_name': last,
+					 'employee_id': registration.employee_id,
+					 'email': email,
+					 'phone': registration.phone,
+					 'school': registration.school,
+					 'grade': registration.grade_teaching,
+					 'session_range': registration.session_range,
+					 'curriculum': registration.curriculum}
+		return line_data
+
 	def __call__(self):
 		values = CaseInsensitiveDict( self.request.params )
 		username = values.get( 'user' ) or values.get( 'username' )
@@ -123,39 +154,75 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 			return hexc.HTTPNotFound( _('There are no registrations') )
 
 		stream = BytesIO()
-		csv_writer = csv.writer( stream )
-		header_row = [u'username', u'first_name', u'last_name',
-					  u'employee_id', u'email', u'phone',
-					  u'school', u'grade', u'session_range', u'curriculum']
-		csv_writer.writerow( header_row )
+		header_row = self._get_header_row()
+		csv_writer = csv.DictWriter( stream, header_row )
+		csv_writer.writeheader()
 
 		registrations = sorted( registrations, key=lambda x: x.timestamp )
 		for registration in registrations:
-			username = registration.user.username
-			user = User.get_user( username )
-			if user is None:
-				logger.warn( 'User not found (%s)', username )
-				continue
-			username, first, last, email = self._get_names_and_email( user, username )
-			if email and email.endswith( '@nextthought.com' ):
-				continue
-			line_data = (username,
-						 first,
-						 last,
-						 registration.employee_id,
-						 email,
-						 registration.phone,
-						 registration.school,
-						 registration.grade_teaching,
-						 registration.session_range,
-						 registration.curriculum)
-			csv_writer.writerow( line_data )
+			line_data = self._get_row_data( registration )
+			if line_data:
+				csv_writer.writerow( line_data )
 
 		response = self.request.response
 		response.body = stream.getvalue()
 		response.content_type = str('text/csv; charset=UTF-8')
 		response.content_disposition = b'attachment; filename="registrations.csv"'
 		return response
+
+@view_config(route_name='objects.generic.traversal',
+			 renderer='rest',
+			 permission=nauth.ACT_NTI_ADMIN,
+			 context=RegistrationPathAdapter,
+			 request_method='GET',
+			 name=REGISTRATION_SURVEY_READ_VIEW)
+class RegistrationSurveyCSVView( RegistrationCSVView ):
+	"""
+	An admin view to fetch all registration data and survey data in
+	a CSV.
+	"""
+
+	def _get_question_key(self, question_id):
+		# Remove whitespace
+		return '_'.join( question_id.split() )
+
+	def _get_survey_display(self, question_id):
+		return 'Survey: %s' % question_id
+
+	@Lazy
+	def _survey_question_map(self):
+		"""
+		Map survey question identifier to display version.
+		"""
+		registration_id = self._get_registration_id()
+		survey_questions = get_all_survey_questions( registration_id )
+		survey_question_map = {self._get_question_key( x ): self._get_survey_display( x )
+							   for x in survey_questions }
+		return survey_question_map
+
+	def _get_row_data(self, registration):
+		line_data = super( RegistrationSurveyCSVView, self )._get_row_data( registration )
+		survey_submission = registration.survey_submission[0]
+		line_data['survey_version'] = survey_submission.survey_version
+
+		# Gather our user responses
+		user_results = {}
+		for submission in survey_submission.details:
+			key = self._get_question_key( submission.question_id )
+			user_results[ key ] = submission.response
+
+		# Now map to our result set, making sure to provide empty string
+		# for no-responses.
+		for key, display in self._survey_question_map.items():
+			line_data[display] = user_results.get( key, '' )
+		return line_data
+
+	def _get_header_row(self):
+		header_row = super( RegistrationSurveyCSVView, self )._get_header_row()
+		header_row.append( 'survey_version' )
+		questions = sorted( self._survey_question_map.values() )
+		header_row.extend( questions )
+		return header_row
 
 RegistrationEnrollmentRule = namedtuple( 'RegistrationEnrollmentRule',
 										 ('school',

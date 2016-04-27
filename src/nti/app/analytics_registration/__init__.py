@@ -26,3 +26,6 @@ REGISTRATION_ENROLL_RULES = 'RegistrationEnrollRules'
 
 #: The admin view to fetch registration csv.
 REGISTRATION_READ_VIEW = 'Registrations'
+
+#: The admin view to fetch registration and survey csv.
+REGISTRATION_SURVEY_READ_VIEW = 'RegistrationSurveys'

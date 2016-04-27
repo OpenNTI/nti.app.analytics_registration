@@ -22,6 +22,7 @@ does_not = is_not
 
 import os
 import csv
+import simplejson as json
 
 from six import StringIO
 
@@ -51,6 +52,7 @@ from nti.app.analytics_registration import REGISTRATION
 from nti.app.analytics_registration import REGISTRATION_READ_VIEW
 from nti.app.analytics_registration import SUBMIT_REGISTRATION_INFO
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
+from nti.app.analytics_registration import REGISTRATION_SURVEY_READ_VIEW
 from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
 from nti.analytics_registration.stats import _RegistrationStatsSource
@@ -66,6 +68,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 	sessions_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_AVAILABLE_SESSIONS )
 	rules_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_ENROLL_RULES )
 	registrations_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_READ_VIEW )
+	registrations_survey_url = '/dataserver2/%s/%s' % ( REGISTRATION, REGISTRATION_SURVEY_READ_VIEW )
 
 	registration_id = 'ClockmakersLie'
 
@@ -188,9 +191,9 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 
 		self._test_enrolled( 'sjohnson@nextthought.com' )
 
-		def _get_registrations_csv( reg_id=self.registration_id ):
+		def _get_registrations_csv( url=self.registrations_url, reg_id=self.registration_id ):
 			csv_params = {'registration_id':reg_id}
-			res = self.testapp.get( self.registrations_url, params=csv_params )
+			res = self.testapp.get( url, params=csv_params )
 			return tuple( csv.DictReader( StringIO( res.body ) ) )
 
 		# Get registrations again
@@ -245,10 +248,14 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 							get_rules_url, sessions=True, rules=True )
 		self.testapp.post_json( submit_url, form_data2 )
 		self._test_enrolled( new_username, enrolled=False )
-		self.testapp.post_json( submit_url2, form_data, extra_environ=new_user_env )
+		no_survey_form_data = dict( form_data )
+		no_survey_form_data.pop( 'survey_text' )
+		no_survey_form_data.pop( 'survey_list' )
+		self.testapp.post_json( submit_url2, no_survey_form_data, extra_environ=new_user_env )
 		self._test_enrolled( new_username )
 		self.testapp.post_json( submit_url2, form_data2, extra_environ=new_user_env )
 
+		# CSVs
 		csv_output = _get_registrations_csv()
 		assert_that( csv_output, has_length( 2 ))
 		assert_that( csv_output, has_items(
@@ -257,13 +264,24 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 									has_entries( 'username', new_username,
 												 'session_range', session )))
 
-		csv_output = _get_registrations_csv( registration_id2 )
+		csv_output = _get_registrations_csv( reg_id=registration_id2 )
 		assert_that( csv_output, has_length( 2 ))
 		assert_that( csv_output, has_items(
 									has_entries( 'username', 'sjohnson@nextthought.com',
 												 'session_range', session2 ),
 									has_entries( 'username', new_username,
 												 'session_range', session2 )))
+
+		# Survey output, including user who answered nothing.
+		csv_output = _get_registrations_csv( url=self.registrations_survey_url )
+		assert_that( csv_output, has_length( 2 ))
+		assert_that( csv_output, has_items(
+									has_entries( 'username', 'sjohnson@nextthought.com',
+												 'Survey: survey_text', text_response,
+												 'Survey: survey_list', json.dumps( list_response )),
+									has_entries( 'username', new_username,
+												 'Survey: survey_text', '',
+												 'Survey: survey_list', '' )))
 
 		# Test stats
 		with mock_dataserver.mock_db_trans(self.ds, site_name='platform.ou.edu'):
@@ -301,7 +319,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 									has_entries( 'username', new_username,
 												 'session_range', session )))
 
-		csv_output = _get_registrations_csv( registration_id2 )
+		csv_output = _get_registrations_csv( reg_id=registration_id2 )
 		assert_that( csv_output, has_length( 1 ))
 		assert_that( csv_output, has_item(
 									has_entries( 'username', new_username,
@@ -312,7 +330,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 
 		self.testapp.get( self.registrations_url, params=reg_params, status=404 )
 
-		csv_output = _get_registrations_csv( registration_id2 )
+		csv_output = _get_registrations_csv( reg_id=registration_id2 )
 		assert_that( csv_output, has_length( 1 ))
 		assert_that( csv_output, has_item(
 									has_entries( 'username', new_username,
