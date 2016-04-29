@@ -202,6 +202,8 @@ class RegistrationSurveyCSVView( RegistrationCSVView ):
 
 	def _get_row_data(self, registration):
 		line_data = super( RegistrationSurveyCSVView, self )._get_row_data( registration )
+		if not line_data:
+			return None
 		survey_submission = registration.survey_submission[0]
 		line_data['survey_version'] = survey_submission.survey_version
 
