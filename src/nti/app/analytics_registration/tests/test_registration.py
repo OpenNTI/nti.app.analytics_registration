@@ -57,6 +57,12 @@ from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
 
 from nti.analytics_registration.stats import _RegistrationStatsSource
 
+csv_update_values = '%s\n%s\n%s' % (
+					'username,grade,employee_id,phone,session_range,curriculum',
+					'sjohnson@nextthought.com,12th,new_id,new_phone,new_range,new_course',
+					'')
+csv_update_values = str( csv_update_values )
+
 class TestAnalyticsRegistration(ApplicationLayerTest):
 
 	layer = InstructedCourseApplicationTestLayer
@@ -241,7 +247,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		form_data2['version'] = 'Survey.v1'
 		new_user_env = self._make_extra_environ( new_username )
 
-		# With no rules for reg_id, the supplied cousre_ntiid does not validate.
+		# With no rules for reg_id, the supplied course_ntiid does not validate.
 		self.testapp.post_json( submit_url, form_data2, status=422 )
 
 		self._upload_rules( {'registration_id': registration_id2},
@@ -301,6 +307,25 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 			assert_that( stats.RegistrationStats.curriculum, is_(self.curriculum))
 			assert_that( stats.RegistrationStats.employee_id, is_(employee_id))
 			assert_that( stats.RegistrationStats.phone, none())
+
+		# Update user information
+		update_url = '/dataserver2/registration/UpdateRegistrations'
+		self.testapp.post( update_url,
+						   upload_files=[('input', 'foo.csv', csv_update_values)],
+						   params=reg_params)
+
+		with mock_dataserver.mock_db_trans(self.ds):
+			# User is now updated.
+			user = User.get_user( 'sjohnson@nextthought.com' )
+			user_registrations = get_user_registrations( user, self.registration_id )
+			assert_that( user_registrations, has_length( 1 ))
+			user_registration = user_registrations[0]
+			assert_that( user_registration.grade_teaching, is_( '12th' ))
+			assert_that( user_registration.curriculum, is_( 'new_course' ))
+			assert_that( user_registration.school, is_( self.school ))
+			assert_that( user_registration.employee_id, is_( 'new_id' ))
+			assert_that( user_registration.phone, is_( 'new_phone' ))
+			assert_that( user_registration.session_range, is_( 'new_range' ))
 
 		# Test admin view removing registrations
 		delete_url = '/dataserver2/registration/RemoveRegistrations'

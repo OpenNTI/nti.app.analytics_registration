@@ -63,6 +63,7 @@ from nti.ntiids.ntiids import find_object_with_ntiid
 
 from nti.app.analytics_registration import REGISTRATION
 from nti.app.analytics_registration import REGISTRATION_READ_VIEW
+from nti.app.analytics_registration import REGISTRATION_UPDATE_VIEW
 from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
 from nti.app.analytics_registration import REGISTRATION_SURVEY_READ_VIEW
 from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
@@ -225,6 +226,57 @@ class RegistrationSurveyCSVView( RegistrationCSVView ):
 		questions = sorted( self._survey_question_map.values() )
 		header_row.extend( questions )
 		return header_row
+
+@view_config(route_name='objects.generic.traversal',
+			 renderer='rest',
+			 permission=nauth.ACT_NTI_ADMIN,
+			 context=RegistrationPathAdapter,
+			 request_method='POST',
+			 name=REGISTRATION_UPDATE_VIEW)
+class RegistrationUpdateView(AbstractAuthenticatedView,
+							 RegistrationIDViewMixin,
+							 ModeledContentUploadRequestUtilsMixin):
+	"""
+	An admin view to update registration data, via CSV input.
+	"""
+
+	@Lazy
+	def _update_keys(self):
+		keys = [u'employee_id', u'phone', u'school',
+				u'grade', u'session_range', u'curriculum']
+		return keys
+
+	def _get_input(self):
+		source = get_source(self.request, 'csv', 'input', 'source')
+		if source is None:
+			raise hexc.HTTPUnprocessibleEntity()
+		return source
+
+	def __call__(self):
+		registration_id = self._get_registration_id()
+
+		csv_input = self._get_input()
+		reader = csv.DictReader( csv_input )
+		for row in reader:
+			username = row.get( 'username' )
+			user = User.get_user( username ) if username else None
+			if username and user is None:
+				logger.warn( 'Skipping user not found %s', username )
+				continue
+			registrations = get_user_registrations( user,
+													registration_id )
+			if not registrations:
+				return hexc.HTTPNotFound( _('There are no registrations found for %s' % username) )
+
+			for registration in registrations:
+				for key in self._update_keys:
+					if key in row:
+						val = row.get( key )
+						if key == 'grade':
+							key = 'grade_teaching'
+						setattr( registration, key, val )
+				logger.info( 'Updated registration data (user=%s) (data=%s)', username, row )
+		return hexc.HTTPNoContent()
 
 RegistrationEnrollmentRule = namedtuple( 'RegistrationEnrollmentRule',
 										 ('school',
