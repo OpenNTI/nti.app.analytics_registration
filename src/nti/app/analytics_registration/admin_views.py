@@ -116,7 +116,7 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 		return external_id, firstname, lastname, email
 
 	def _get_header_row(self):
-		header_row = [u'username', u'first_name', u'last_name',
+		header_row = [u'username', u'first_name', u'last_name', 'registration_date',
 					  u'employee_id', u'email', u'phone',
 					  u'school', u'grade', u'session_range', u'curriculum']
 		return header_row
@@ -133,6 +133,7 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 		line_data = {'username': username,
 					 'first_name': first,
 					 'last_name': last,
+					 'registration_date': registration.timestamp,
 					 'employee_id': registration.employee_id,
 					 'email': email,
 					 'phone': registration.phone,

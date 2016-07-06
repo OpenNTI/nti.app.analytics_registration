@@ -10,6 +10,7 @@ __docformat__ = "restructuredtext en"
 from hamcrest import is_
 from hamcrest import none
 from hamcrest import is_not
+from hamcrest import not_none
 from hamcrest import has_item
 from hamcrest import has_items
 from hamcrest import has_entry
@@ -213,6 +214,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'phone' ), is_( phone ) )
 		assert_that( registered.get( 'session_range' ), is_( session ) )
 		assert_that( registered.get( 'employee_id' ), is_( employee_id ))
+		assert_that( registered.get( 'registration_date' ), not_none())
 
 		# Already registered.
 		self.testapp.post_json( submit_url, form_data, status=422 )
