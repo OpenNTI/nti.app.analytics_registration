@@ -122,6 +122,9 @@ class RegistrationCSVView(AbstractAuthenticatedView,
 		return header_row
 
 	def _get_row_data(self, registration):
+		if not registration.user:
+			logger.warn( 'User no longer exists' )
+			return
 		username = registration.user.username
 		user = User.get_user( username )
 		if user is None:
