@@ -105,9 +105,10 @@ class RegistrationIDViewMixin(object):
 class RegistrationCSVMixin( object ):
 
 	def _get_registration_header_row(self):
-		header_row = [u'username', u'first_name', u'last_name', 'registration_date',
-					  u'employee_id', u'email', u'phone',
-					  u'school', u'grade', u'session_range', u'curriculum']
+		header_row = [u'username', u'first_name', u'last_name',
+					  u'registration_date', u'employee_id', u'email',
+					  u'phone', u'school', u'grade', u'session_range',
+					  u'curriculum']
 		return header_row
 
 class RegistrationSurveyCSVMixin(RegistrationCSVMixin):
@@ -146,7 +147,11 @@ class RegistrationSurveyCSVMixin(RegistrationCSVMixin):
 		user_results = {}
 		for submission in survey_submission.details:
 			key = self._get_question_key( submission.question_id )
-			user_results[ key ] = submission.response
+			response = submission.response
+			if isinstance( response, list ):
+				# Make sure our list response is readable.
+				response = ', '.join( (str(x) for x in response) )
+			user_results[ key ] = response
 
 		# Now map to our result set, making sure to provide empty string
 		# for no-responses.

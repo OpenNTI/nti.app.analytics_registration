@@ -173,6 +173,9 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 					  'survey_list' : list_response }
 		form_data.update( reg_params )
 
+		# We return a readable choice of options
+		readable_list_response = '1, 2, 3, 4, 5'
+
 		# Missing field
 		bad_data = dict( form_data )
 		bad_data.pop( 'course' )
@@ -286,7 +289,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( csv_output, has_items(
 									has_entries( 'username', 'sjohnson@nextthought.com',
 												 'Survey: survey_text', text_response,
-												 'Survey: survey_list', json.dumps( list_response )),
+												 'Survey: survey_list', readable_list_response),
 									has_entries( 'username', new_username,
 												 'Survey: survey_text', '',
 												 'Survey: survey_list', '' )))
@@ -303,7 +306,7 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 			# assert_that( stats.RegistrationSurveyStats.survey_version, none())
 			# assert_that( stats.RegistrationStats.session_range, is_(session))
 			assert_that( stats.RegistrationSurveyStats, has_property( 'survey_text', text_response ))
-			assert_that( stats.RegistrationSurveyStats, has_property( 'survey_list', list_response ))
+			assert_that( stats.RegistrationSurveyStats, has_property( 'survey_list', readable_list_response ))
 			assert_that( stats.RegistrationStats.school, is_(self.school))
 			assert_that( stats.RegistrationStats.grade_teaching, is_(self.grade))
 			assert_that( stats.RegistrationStats.curriculum, is_(self.curriculum))
