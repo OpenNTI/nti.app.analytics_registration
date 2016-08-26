@@ -11,8 +11,6 @@ logger = __import__('logging').getLogger(__name__)
 
 import csv
 
-from nti.app.analytics_registration import MessageFactory as _
-
 from collections import namedtuple
 
 from io import BytesIO
@@ -27,6 +25,20 @@ from pyramid.view import view_config
 
 from pyramid import httpexceptions as hexc
 
+from nti.app.analytics_registration import MessageFactory as _
+
+from nti.app.analytics_registration import REGISTRATION
+from nti.app.analytics_registration import REGISTRATION_READ_VIEW
+from nti.app.analytics_registration import REGISTRATION_UPDATE_VIEW
+from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
+from nti.app.analytics_registration import REGISTRATION_SURVEY_READ_VIEW
+from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
+
+from nti.analytics_registration.registration import get_user_registrations
+from nti.analytics_registration.registration import store_registration_rules
+from nti.analytics_registration.registration import delete_user_registrations
+from nti.analytics_registration.registration import store_registration_sessions
+
 from nti.app.analytics_registration.view_mixins import RegistrationCSVMixin
 from nti.app.analytics_registration.view_mixins import RegistrationIDViewMixin
 from nti.app.analytics_registration.view_mixins import RegistrationSurveyCSVMixin
@@ -36,14 +48,7 @@ from nti.app.base.abstract_views import AbstractAuthenticatedView
 
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
 
-from nti.analytics_registration.registration import get_user_registrations
-from nti.analytics_registration.registration import store_registration_rules
-from nti.analytics_registration.registration import delete_user_registrations
-from nti.analytics_registration.registration import store_registration_sessions
-
 from nti.common.maps import CaseInsensitiveDict
-
-from nti.common.property import Lazy
 
 from nti.contenttypes.courses.interfaces import ICourseInstance
 from nti.contenttypes.courses.interfaces import ICourseEnrollmentManager
@@ -56,12 +61,7 @@ from nti.externalization.interfaces import StandardExternalFields
 
 from nti.ntiids.ntiids import find_object_with_ntiid
 
-from nti.app.analytics_registration import REGISTRATION
-from nti.app.analytics_registration import REGISTRATION_READ_VIEW
-from nti.app.analytics_registration import REGISTRATION_UPDATE_VIEW
-from nti.app.analytics_registration import REGISTRATION_ENROLL_RULES
-from nti.app.analytics_registration import REGISTRATION_SURVEY_READ_VIEW
-from nti.app.analytics_registration import REGISTRATION_AVAILABLE_SESSIONS
+from nti.property.property import Lazy
 
 CLASS = StandardExternalFields.CLASS
 LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED

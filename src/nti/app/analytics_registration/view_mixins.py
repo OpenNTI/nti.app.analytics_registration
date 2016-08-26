@@ -21,13 +21,13 @@ from pyramid import httpexceptions as hexc
 
 from nti.common.maps import CaseInsensitiveDict
 
-from nti.common.property import Lazy
-
 from nti.dataserver.interfaces import IUsernameSubstitutionPolicy
 
 from nti.dataserver.users import User
 
 from nti.dataserver.users.interfaces import IUserProfile
+
+from nti.property.property import Lazy
 
 def replace_username(username):
 	substituter = component.queryUtility(IUsernameSubstitutionPolicy)
