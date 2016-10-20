@@ -89,9 +89,13 @@ class RegistrationIDViewMixin(object):
 		username, first, last, email = self._get_names_and_email( user, username )
 		if email and email.endswith( '@nextthought.com' ):
 			return
+		account_create_date = getattr( user, 'created', None )
+		last_login = getattr( user, 'lastLoginTime', None )
 		line_data = {'username': username,
 					 'first_name': first,
 					 'last_name': last,
+					 'account_create_date': account_create_date,
+					 'last_login_time': last_login,
 					 'registration_date': registration.timestamp,
 					 'employee_id': registration.employee_id,
 					 'email': email,
@@ -106,6 +110,7 @@ class RegistrationCSVMixin( object ):
 
 	def _get_registration_header_row(self):
 		header_row = [u'username', u'first_name', u'last_name',
+					  u'account_create_date', 'last_login_time',
 					  u'registration_date', u'employee_id', u'email',
 					  u'phone', u'school', u'grade', u'session_range',
 					  u'curriculum']

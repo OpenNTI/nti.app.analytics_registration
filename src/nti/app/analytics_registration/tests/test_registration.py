@@ -23,7 +23,6 @@ does_not = is_not
 
 import os
 import csv
-import simplejson as json
 
 from six import StringIO
 
@@ -218,6 +217,8 @@ class TestAnalyticsRegistration(ApplicationLayerTest):
 		assert_that( registered.get( 'session_range' ), is_( session ) )
 		assert_that( registered.get( 'employee_id' ), is_( employee_id ))
 		assert_that( registered.get( 'registration_date' ), not_none())
+		assert_that( registered.get( 'account_create_date' ), not_none())
+		assert_that( registered.get( 'last_login_time' ), not_none())
 
 		# Already registered.
 		self.testapp.post_json( submit_url, form_data, status=422 )
