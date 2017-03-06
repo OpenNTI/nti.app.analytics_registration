@@ -13,6 +13,8 @@ from nti.app.analytics_registration import MessageFactory as _
 
 from collections import namedtuple
 
+from requests.structures import CaseInsensitiveDict
+
 from datetime import datetime
 
 from pyramid.view import view_config
@@ -34,8 +36,6 @@ from nti.analytics_registration.registration import get_registration_rules
 from nti.analytics_registration.registration import store_registration_data
 from nti.analytics_registration.registration import get_registration_sessions
 from nti.analytics_registration.registration import store_registration_survey_data
-
-from nti.common.maps import CaseInsensitiveDict
 
 from nti.contenttypes.courses.interfaces import ES_CREDIT_NONDEGREE
 

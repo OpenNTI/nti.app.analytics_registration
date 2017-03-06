@@ -15,6 +15,8 @@ from collections import namedtuple
 
 from io import BytesIO
 
+from requests.structures import CaseInsensitiveDict
+
 from zope import interface
 
 from zope.container.contained import Contained
@@ -47,8 +49,6 @@ from nti.app.base.abstract_views import get_source
 from nti.app.base.abstract_views import AbstractAuthenticatedView
 
 from nti.app.externalization.view_mixins import ModeledContentUploadRequestUtilsMixin
-
-from nti.common.maps import CaseInsensitiveDict
 
 from nti.contenttypes.courses.interfaces import ICourseInstance
 from nti.contenttypes.courses.interfaces import ICourseEnrollmentManager
@@ -175,7 +175,7 @@ class RegistrationUpdateView(AbstractAuthenticatedView,
 	def _get_input(self):
 		source = get_source(self.request, 'csv', 'input', 'source')
 		if source is None:
-			raise hexc.HTTPUnprocessibleEntity()
+			raise hexc.HTTPUnprocessableEntity()
 		return source
 
 	def __call__(self):

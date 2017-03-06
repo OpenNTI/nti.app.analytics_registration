@@ -11,6 +11,8 @@ logger = __import__('logging').getLogger(__name__)
 
 import nameparser
 
+from requests.structures import CaseInsensitiveDict
+
 from zope import component
 
 from nti.analytics_registration.registration import get_all_survey_questions
@@ -18,8 +20,6 @@ from nti.analytics_registration.registration import get_all_survey_questions
 from nti.app.analytics_registration import MessageFactory as _
 
 from pyramid import httpexceptions as hexc
-
-from nti.common.maps import CaseInsensitiveDict
 
 from nti.dataserver.interfaces import IUsernameSubstitutionPolicy
 
