@@ -15,6 +15,8 @@ from requests.structures import CaseInsensitiveDict
 
 from zope import component
 
+from zope.cachedescriptors.property import Lazy
+
 from nti.analytics_registration.registration import get_all_survey_questions
 
 from nti.app.analytics_registration import MessageFactory as _
@@ -27,7 +29,6 @@ from nti.dataserver.users import User
 
 from nti.dataserver.users.interfaces import IUserProfile
 
-from nti.property.property import Lazy
 
 def replace_username(username):
 	substituter = component.queryUtility(IUsernameSubstitutionPolicy)

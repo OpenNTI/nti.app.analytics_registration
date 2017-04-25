@@ -19,6 +19,8 @@ from requests.structures import CaseInsensitiveDict
 
 from zope import interface
 
+from zope.cachedescriptors.property import Lazy
+
 from zope.container.contained import Contained
 
 from zope.traversing.interfaces import IPathAdapter
@@ -60,8 +62,6 @@ from nti.dataserver.users import User
 from nti.externalization.interfaces import StandardExternalFields
 
 from nti.ntiids.ntiids import find_object_with_ntiid
-
-from nti.property.property import Lazy
 
 CLASS = StandardExternalFields.CLASS
 LAST_MODIFIED = StandardExternalFields.LAST_MODIFIED
