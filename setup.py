@@ -9,6 +9,14 @@ entry_points = {
 	],
 }
 
+TESTS_REQUIRE = [
+	'nti.dataserver[test]',
+	'nti.app.testing',
+	'nti.testing',
+	'zope.testrunner',
+	'nti.app.products.ou' #Tests require platform.ou.edu site
+]
+
 setup(
 	name='nti.app.analytics_registration',
 	version=VERSION,
@@ -33,5 +41,13 @@ setup(
 		'nti.analytics_registration',
 		'nti.app.analytics'
 	],
+	extras_require={
+		'test': TESTS_REQUIRE,
+		'docs': [
+			'Sphinx',
+			'repoze.sphinx.autointerface',
+			'sphinx_rtd_theme',
+		],
+	},
 	entry_points=entry_points
 )
